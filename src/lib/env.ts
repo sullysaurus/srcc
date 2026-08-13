@@ -1,0 +1,44 @@
+import { z } from "zod";
+
+const optional = z.preprocess(value => value === "" ? undefined : value, z.string().min(1).optional());
+const url = z.preprocess(value => value === "" ? undefined : value, z.string().url().optional());
+
+const schema = z.object({
+  NEXT_PUBLIC_SUPABASE_URL: url,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optional,
+  SUPABASE_SERVICE_ROLE_KEY: optional,
+  OAUTH_TOKEN_ENCRYPTION_KEY: optional,
+  OAUTH_STATE_SECRET: optional,
+  APP_URL: url,
+  CRON_SECRET: optional,
+  HONEYBOOK_WEBHOOK_SECRET: optional,
+  GOOGLE_CLIENT_ID: optional,
+  GOOGLE_CLIENT_SECRET: optional,
+  GOOGLE_ADS_DEVELOPER_TOKEN: optional,
+  GOOGLE_ADS_CUSTOMER_ID: optional,
+  GOOGLE_ADS_MANAGER_CUSTOMER_ID: optional,
+  GOOGLE_ADS_API_VERSION: optional,
+  GOOGLE_SEARCH_CONSOLE_PROPERTY: optional,
+  GOOGLE_SHEETS_SPREADSHEET_ID: optional,
+});
+
+export const env = schema.parse({
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  OAUTH_TOKEN_ENCRYPTION_KEY: process.env.OAUTH_TOKEN_ENCRYPTION_KEY,
+  OAUTH_STATE_SECRET: process.env.OAUTH_STATE_SECRET,
+  APP_URL: process.env.APP_URL,
+  CRON_SECRET: process.env.CRON_SECRET,
+  HONEYBOOK_WEBHOOK_SECRET: process.env.HONEYBOOK_WEBHOOK_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_ADS_DEVELOPER_TOKEN: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+  GOOGLE_ADS_CUSTOMER_ID: process.env.GOOGLE_ADS_CUSTOMER_ID,
+  GOOGLE_ADS_MANAGER_CUSTOMER_ID: process.env.GOOGLE_ADS_MANAGER_CUSTOMER_ID,
+  GOOGLE_ADS_API_VERSION: process.env.GOOGLE_ADS_API_VERSION,
+  GOOGLE_SEARCH_CONSOLE_PROPERTY: process.env.GOOGLE_SEARCH_CONSOLE_PROPERTY,
+  GOOGLE_SHEETS_SPREADSHEET_ID: process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
+});
+
+export const hasSupabaseEnv = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);

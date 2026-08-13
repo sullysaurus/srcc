@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #171915;
+  --canvas: #eee9dd;
+  --cream: #f8f3e8;
+  --coral: #ef725f;
+  --marigold: #f2bb3f;
+  --turquoise: #68c6bc;
+  --moss: #3e755d;
+  --line: #d7d0c2;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-canvas: var(--canvas);
+  --color-cream: var(--cream);
+  --color-coral: var(--coral);
+  --color-marigold: var(--marigold);
+  --color-turquoise: var(--turquoise);
+  --color-moss: var(--moss);
+  --font-sans: "Avenir Next", Avenir, "Century Gothic", sans-serif;
+  --font-display: "Iowan Old Style", "Baskerville", Georgia, serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+* { border-color: var(--line); }
+html { background: var(--canvas); }
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Avenir Next", Avenir, "Century Gothic", sans-serif;
+  background:
+    radial-gradient(circle at 78% 2%, rgba(242,187,63,.12), transparent 24rem),
+    linear-gradient(rgba(23,25,21,.025) 1px, transparent 1px), var(--canvas);
+  background-size: auto, 100% 28px, auto;
+}
+::selection { background: var(--marigold); color: var(--ink); }
+button, a { -webkit-tap-highlight-color: transparent; }
+table { font-variant-numeric: tabular-nums; }
+.paper { background: rgba(248,243,232,.92); box-shadow: 0 1px 0 rgba(23,25,21,.08), 0 16px 40px rgba(23,25,21,.045); }
+.reveal { animation: reveal .5s cubic-bezier(.22,1,.36,1) both; }
+@keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; } }

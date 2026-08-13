@@ -1,0 +1,28 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
+
+export const supportedHoneyBookEvent = z.enum([
+  "new_inquiry", "client_created", "project_stage_changed", "project_booked", "payment_received", "meeting_scheduled",
+]);
+
+export const honeyBookWebhookSchema = z.object({
+  event: supportedHoneyBookEvent,
+  event_id: z.string().min(1),
+  occurred_at: z.string().datetime(),
+  project_id: z.string().optional(),
+  client_id: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).default({}),
+});
+
+export function verifySharedSecret(provided: string | null, expected: string) {
+  if (!provided) return false;
+  const actual = Buffer.from(provided);
+  const target = Buffer.from(expected);
+  return actual.length === target.length && timingSafeEqual(actual, target);
+}
+
+export function safeWebhookPayload(payload: z.infer<typeof honeyBookWebhookSchema>) {
+  return { event: payload.event, event_id: payload.event_id, occurred_at: payload.occurred_at, project_id: payload.project_id ? "[present]" : undefined, client_id: payload.client_id ? "[present]" : undefined, keys: Object.keys(payload.data) };
+}
+
+export const payloadDigest = (raw: string) => createHash("sha256").update(raw).digest("hex");

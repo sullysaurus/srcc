@@ -1,0 +1,11 @@
+import type { AdsConversionAction, AdsConversionDaily, AdsDailyRow } from "./contracts";
+export type HealthIssue={key:string;severity:"info"|"warning"|"critical";title:string;detail:string;entityProviderId?:string};
+export function evaluateAdsHealth(actions:AdsConversionAction[],rows:AdsDailyRow[],conversionRows:AdsConversionDaily[]=[]):HealthIssue[]{
+  const issues:HealthIssue[]=[];
+  for(const action of actions){if(action.status!=="ENABLED")issues.push({key:"inactive_conversion_action",severity:"warning",title:"Inactive conversion action",detail:`${action.name} is ${action.status.toLowerCase()}.`,entityProviderId:action.providerId});if(action.primaryForGoal&&!action.enhancedConversionsEnabled)issues.push({key:"enhanced_conversions_disabled",severity:"warning",title:"Enhanced conversions not enabled",detail:`${action.name} is primary but enhanced conversions are not enabled.`,entityProviderId:action.providerId});if(action.status==="ENABLED"&&!conversionRows.some(row=>row.actionId===action.providerId&&row.conversions>0))issues.push({key:"no_recent_conversions",severity:"warning",title:"No recent conversions",detail:`${action.name} recorded no conversions in the synchronization window.`,entityProviderId:action.providerId});}
+  const campaignTotals=new Map<string,{name:string;cost:number;conversions:number}>();
+  for(const row of rows){const total=campaignTotals.get(row.campaignId)??{name:row.campaignName,cost:0,conversions:0};total.cost+=row.costCents;total.conversions+=row.conversions;campaignTotals.set(row.campaignId,total);}
+  for(const [id,total] of campaignTotals)if(total.cost>0&&total.conversions===0)issues.push({key:"spend_without_conversions",severity:"critical",title:"Campaign spending without leads",detail:`${total.name} spent ${(total.cost/100).toLocaleString("en-US",{style:"currency",currency:"USD"})} without a reported conversion.`,entityProviderId:id});
+  return issues;
+}
+export function classifyConversionOutcome(name:string){const value=name.toLowerCase();if(/revenue|payment|collected/.test(value))return "revenue_collected";if(/book|retainer/.test(value))return "booked_event";if(/proposal/.test(value))return "proposal";if(/qualified/.test(value))return "qualified_lead";if(/inquiry|lead|form|call/.test(value))return "inquiry";return "unmapped";}

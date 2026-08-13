@@ -1,0 +1,17 @@
+# Proposed and implemented schema
+
+| Area | Tables |
+|---|---|
+| Identity | `organizations`, `users`, `organization_memberships` |
+| Sales | `contacts`, `projects`, `pipeline_stages`, `services`, `project_services`, `tasks` |
+| Client activity | `communications`, `proposals`, `proposal_views`, `invoices`, `payments`, `activity_events` |
+| Attribution | `lead_attribution` |
+| Google Ads | `google_ads_accounts`, `google_ads_campaigns`, `google_ads_ad_groups`, `google_ads_keywords`, `google_ads_search_terms`, `google_ads_daily_metrics`, `google_ads_conversion_actions`, `google_ads_conversion_uploads` |
+| Search Console | `search_console_properties`, `search_console_daily_metrics`, `search_console_sitemaps` |
+| Integrations | `sync_connections`, `sync_runs`, `webhook_events`, `oauth_states`, `integration_health_issues` |
+| Import quality | `source_records`, `mapping_rules`, `mapping_queue` |
+| Accountability | `audit_log` |
+
+Every business row carries `organization_id`. Provider IDs have organization/provider-scoped uniqueness constraints. Source records retain immutable raw JSON separately from normalized JSON. Import fingerprints and source coordinates prevent duplicates. Financial values are non-negative integer cents. Refresh tokens have only an encrypted byte column; token plaintext never belongs in Postgres or logs.
+
+RLS grants ordinary organization reads by membership, write access by functional role, financial visibility to owner/admin/sales, marketing datasets to owner/admin/marketing/read-only, and integration/audit visibility to owner/admin. The service role is reserved for server-only jobs and verified webhook ingestion.

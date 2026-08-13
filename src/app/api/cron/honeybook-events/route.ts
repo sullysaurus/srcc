@@ -1,0 +1,9 @@
+import { NextResponse } from "next/server";
+import { isAuthorizedCron } from "@/lib/cron-auth";
+import { honeyBookWebhookSchema } from "@/lib/integrations/honeybook-webhook";
+import { processHoneyBookEvent } from "@/lib/integrations/honeybook-processor";
+import { decryptSecret } from "@/lib/integrations/token-crypto";
+import { env } from "@/lib/env";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+
+export async function GET(request:Request){if(!isAuthorizedCron(request))return NextResponse.json({error:"unauthorized"},{status:401});if(!env.OAUTH_TOKEN_ENCRYPTION_KEY)return NextResponse.json({error:"encryption_not_configured"},{status:503});const admin=createAdminSupabaseClient();const{data,error}=await admin.from("webhook_events").select("id,organization_id,encrypted_payload,retry_count").eq("provider","honeybook_zapier").eq("status","failed").lt("retry_count",5).gt("retention_expires_at",new Date().toISOString()).order("received_at").limit(25);if(error)return NextResponse.json({error:"retry_lookup_failed"},{status:500});let succeeded=0,failed=0;for(const event of data??[]){try{const payload=honeyBookWebhookSchema.parse(JSON.parse(decryptSecret(String(event.encrypted_payload),env.OAUTH_TOKEN_ENCRYPTION_KEY)));await processHoneyBookEvent(event.organization_id,payload);await admin.from("webhook_events").update({status:"succeeded",processed_at:new Date().toISOString(),retry_count:event.retry_count+1,error_summary:null}).eq("id",event.id);succeeded+=1}catch(processingError){const summary=processingError instanceof Error?processingError.message:"HoneyBook retry failed";await admin.from("webhook_events").update({status:event.retry_count+1>=5?"dead_letter":"failed",retry_count:event.retry_count+1,error_summary:summary.slice(0,300)}).eq("id",event.id);failed+=1}}return NextResponse.json({processed:(data??[]).length,succeeded,failed});}
