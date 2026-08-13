@@ -5,7 +5,7 @@
 | Identity | `organizations`, `users`, `organization_memberships` |
 | Sales | `contacts`, `projects`, `pipeline_stages`, `services`, `project_services`, `tasks` |
 | Client activity | `communications`, `proposals`, `proposal_views`, `invoices`, `payments`, `activity_events` |
-| Attribution | `lead_attribution` |
+| Attribution | `attribution_sessions`, `attribution_touch_events`, `lead_attribution` |
 | Google Ads | `google_ads_accounts`, `google_ads_campaigns`, `google_ads_ad_groups`, `google_ads_keywords`, `google_ads_search_terms`, `google_ads_daily_metrics`, `google_ads_conversion_actions`, `google_ads_conversion_uploads` |
 | Search Console | `search_console_properties`, `search_console_daily_metrics`, `search_console_sitemaps` |
 | Integrations | `sync_connections`, `sync_runs`, `webhook_events`, `oauth_states`, `integration_health_issues` |

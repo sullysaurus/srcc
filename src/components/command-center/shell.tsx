@@ -5,6 +5,8 @@ import {
   HeartHandshake,
   Import,
   LayoutDashboard,
+  Link2,
+  Mail,
   Map,
   Search,
   Settings2,
@@ -19,6 +21,8 @@ const navigation = [
   { href: "/pipeline", label: "Sales Pipeline", icon: UsersRound, count: 7 },
   { href: "/advertising", label: "Google Ads", icon: BarChart3 },
   { href: "/seo", label: "Search & SEO", icon: Search },
+  { href: "/attribution", label: "Attribution", icon: Link2 },
+  { href: "/communications", label: "Communications", icon: Mail },
   { href: "/imports", label: "Historical Import", icon: Import },
   { href: "/mapping-queue", label: "Mapping Queue", icon: Map, count: 12 },
   { href: "/integrations", label: "Integrations", icon: Settings2, warning: true },
@@ -85,7 +89,7 @@ export function CommandShell({ children }: { children: ReactNode }) {
           </a>
         </footer>
         <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-ink px-2 py-2 text-white lg:hidden" aria-label="Mobile">
-          {[navigation[0], navigation[1], navigation[2], navigation[3], navigation[6]].map((item) => <Link key={item.href} href={item.href} className="grid place-items-center gap-1 text-[9px] text-white/65"><item.icon className="size-4" /><span>{item.label.split(" ")[0]}</span></Link>)}
+          {[navigation[0], navigation[1], navigation[2], navigation[3], navigation.at(-1)!].map((item) => <Link key={item.href} href={item.href} className="grid place-items-center gap-1 text-[9px] text-white/65"><item.icon className="size-4" /><span>{item.label.split(" ")[0]}</span></Link>)}
         </nav>
       </div>
     </div>

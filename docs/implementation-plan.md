@@ -14,7 +14,7 @@
 
 1. **Foundation — implemented:** identity/RLS, historical CSV import, normalized pipeline, manual follow-ups/services, provenance, audit/sync health, accessible responsive shell.
 2. **Read-only providers — implemented:** HoneyBook/Zapier event processor with encrypted retained payloads and dead-letter retries; Google OAuth with PKCE, encrypted refresh tokens, Ads reporting sync, Search Console property selection/reporting, scheduler routes, and provider health diagnostics. Real credentials and payload mapping still require administrator setup.
-3. **Closed loop:** attribution capture, mailbox metadata sync, supported proposal-view source, advanced reporting and controlled match queue.
+3. **Closed loop — implemented:** privacy-conscious website attribution capture and signed claim tokens, exact HoneyBook project linking, Gmail metadata-only synchronization with mapping queue, separately authenticated proposal-view intake, and page-level organic/revenue reporting without person-level Search Console query claims.
 4. **Write-back:** enhanced conversions/offline booking and revenue uploads only after ownership, terms, tracking, and deduplication approval gates pass.
 
 ## Reused Zim Zoom patterns

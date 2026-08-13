@@ -23,6 +23,16 @@ with sync_playwright() as playwright:
     page.wait_for_load_state("networkidle")
     assert page.get_by_role("heading", name="Elena Ruiz & Marco Diaz").is_visible()
 
+    page.goto(f"{BASE}/attribution")
+    page.wait_for_load_state("networkidle")
+    assert page.get_by_role("heading", name="From first click to booked celebration.").is_visible()
+    assert page.get_by_text("Search Console query rows").is_visible()
+
+    page.goto(f"{BASE}/communications")
+    page.wait_for_load_state("networkidle")
+    assert page.get_by_role("heading", name="Know when the conversation moved.").is_visible()
+    assert page.get_by_role("link", name="Connect Gmail").is_visible()
+
     mobile = browser.new_page(viewport={"width": 390, "height": 844})
     mobile.goto(BASE)
     mobile.wait_for_load_state("networkidle")

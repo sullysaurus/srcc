@@ -21,9 +21,9 @@ export async function GET(request: Request) {
   const { data:existing } = await admin.from("sync_connections").select("encrypted_refresh_token").eq("organization_id",state.organizationId).eq("provider",state.provider).maybeSingle();
   const encryptedRefreshToken = token.data.refresh_token ? encryptSecret(token.data.refresh_token,env.OAUTH_TOKEN_ENCRYPTION_KEY) : existing?.encrypted_refresh_token;
   if (!encryptedRefreshToken) return NextResponse.redirect(new URL("/integrations?error=missing_refresh_token",requestUrl.origin));
-  const configuration = state.provider === "google_ads" ? { customerId:env.GOOGLE_ADS_CUSTOMER_ID,managerCustomerId:env.GOOGLE_ADS_MANAGER_CUSTOMER_ID,grantedScope:token.data.scope } : { propertyUri:env.GOOGLE_SEARCH_CONSOLE_PROPERTY,grantedScope:token.data.scope };
+  const configuration = state.provider === "google_ads" ? { customerId:env.GOOGLE_ADS_CUSTOMER_ID,managerCustomerId:env.GOOGLE_ADS_MANAGER_CUSTOMER_ID,grantedScope:token.data.scope } : state.provider === "search_console" ? { propertyUri:env.GOOGLE_SEARCH_CONSOLE_PROPERTY,grantedScope:token.data.scope } : { grantedScope:token.data.scope,metadataOnly:true };
   const [{ error:connectionError }] = await Promise.all([
-    admin.from("sync_connections").upsert({ organization_id:state.organizationId,provider:state.provider,display_name:state.provider==="google_ads"?"Google Ads":"Search Console",status:"connected",configuration,encrypted_refresh_token:encryptedRefreshToken,token_key_version:1,last_attempt_at:new Date().toISOString() },{ onConflict:"organization_id,provider" }),
+    admin.from("sync_connections").upsert({ organization_id:state.organizationId,provider:state.provider,display_name:state.provider==="google_ads"?"Google Ads":state.provider==="search_console"?"Search Console":"Company Gmail",status:"connected",configuration,encrypted_refresh_token:encryptedRefreshToken,token_key_version:1,last_attempt_at:new Date().toISOString() },{ onConflict:"organization_id,provider" }),
     admin.from("oauth_states").update({ consumed_at:new Date().toISOString() }).eq("id",stored.id),
     admin.from("audit_log").insert({ organization_id:state.organizationId,action:"integration.connected",entity_type:"sync_connection",reason:`${state.provider} OAuth authorization completed` }),
   ]);

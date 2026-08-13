@@ -51,12 +51,24 @@ Export the `Leads` tab as CSV and use Historical Import. The source spreadsheet 
 
 ## 8. Email
 
-Choose the company mailbox and approve the retention policy. Default storage is timestamp, direction, channel, subject, short internal summary, match, and external message ID. Do not store full body content unless a documented requirement is approved. Queue uncertain matches.
+Choose the company mailbox and approve the retention policy. Gmail authorization requests `gmail.metadata`, not message-body access. Default storage is timestamp, direction, channel, subject, short internal summary, match, and external message ID. Queue uncertain matches.
 
-## 9. Vercel and schedules
+## 9. Website attribution
 
-Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` schedules daily integration-health checks. Add provider sync schedules only after each connector has been tested independently. Provider failures must create partial/failed `sync_runs` without blocking other sources.
+1. Set `ATTRIBUTION_SIGNING_SECRET` to a unique high-entropy secret and restrict `ATTRIBUTION_ALLOWED_ORIGINS` to the production website origins.
+2. Add `<script defer src="https://YOUR-COMMAND-CENTER/attribution.js" data-endpoint="https://YOUR-COMMAND-CENTER/api/public/attribution"></script>` to the public website.
+3. Ensure the HoneyBook/Zapier inquiry payload forwards `sr_attribution_token` as `attribution_token` or under its original name.
+4. Test `gclid`, `gbraid`, `wbraid`, UTM, landing-page, referrer, first-touch, and last-touch capture with a non-production inquiry.
+5. The script does not read names, emails, phones, or message text. Attribution failure never blocks form submission.
 
-## 10. Rotation and disconnection
+## 10. Proposal activity
+
+Only configure `/api/webhooks/proposal-activity` when a supported proposal provider can send a confirmed view with stable event, proposal, and project IDs. Set a separate `PROPOSAL_ACTIVITY_WEBHOOK_SECRET`. Do not route guessed HoneyBook proposal views to this endpoint.
+
+## 11. Vercel and schedules
+
+Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` schedules HoneyBook retries, hourly Gmail metadata sync, daily Google Ads and Search Console sync, and daily integration-health checks. Disable a schedule until its connector has been tested independently. Provider failures create partial/failed `sync_runs` without blocking other sources.
+
+## 12. Rotation and disconnection
 
 Rotate webhook, cron, OAuth client, and encryption secrets on a documented schedule and after suspected exposure. Disconnect controls must revoke provider access where supported, clear encrypted refresh-token material, set `disconnected_at`, and write an audit record. Never place token values in logs or audit JSON.

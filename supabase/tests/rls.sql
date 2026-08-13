@@ -1,12 +1,15 @@
 begin;
 create extension if not exists pgtap;
-select plan(10);
+select plan(13);
 select has_table('public','organizations','organizations table exists');
 select has_table('public','projects','projects table exists');
 select ok((select relrowsecurity from pg_class where oid='public.projects'::regclass),'projects has RLS enabled');
 select has_table('public','integration_health_issues','integration health table exists');
 select ok((select relrowsecurity from pg_class where oid='public.oauth_states'::regclass),'OAuth state has RLS enabled');
 select ok((select relrowsecurity from pg_class where oid='public.google_ads_conversion_actions'::regclass),'conversion actions have RLS enabled');
+select has_table('public','attribution_sessions','attribution sessions table exists');
+select ok((select relrowsecurity from pg_class where oid='public.attribution_sessions'::regclass),'attribution sessions have RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.attribution_touch_events'::regclass),'attribution touches have RLS enabled');
 
 insert into auth.users (id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','operator@example.com','',now(),'{}','{}',now(),now());

@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, key, { cookies: { getAll: () => request.cookies.getAll(), setAll: values => { values.forEach(({name,value}) => request.cookies.set(name,value)); response = NextResponse.next({request}); values.forEach(({name,value,options}) => response.cookies.set(name,value,options)); } } });
   const { data: { user } } = await supabase.auth.getUser();
-  const isPublic = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/auth/");
+  const isPublic = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/auth/") || request.nextUrl.pathname.startsWith("/api/public/") || request.nextUrl.pathname.startsWith("/api/webhooks/") || request.nextUrl.pathname.startsWith("/api/cron/");
   if (!user && !isPublic) { const target = request.nextUrl.clone(); target.pathname = "/login"; return NextResponse.redirect(target); }
   return response;
 }

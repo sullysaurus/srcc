@@ -2,12 +2,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { signOAuthState, validateOAuthState } from "@/lib/domain/oauth-state";
 
-export const googleProviderSchema = z.enum(["google_ads", "search_console"]);
+export const googleProviderSchema = z.enum(["google_ads", "search_console", "gmail"]);
 export type GoogleProvider = z.infer<typeof googleProviderSchema>;
 
 const scopes: Record<GoogleProvider, string[]> = {
   google_ads: ["https://www.googleapis.com/auth/adwords"],
   search_console: ["https://www.googleapis.com/auth/webmasters.readonly"],
+  gmail: ["https://www.googleapis.com/auth/gmail.metadata"],
 };
 
 const statePayloadSchema = z.object({
