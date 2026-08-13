@@ -30,6 +30,7 @@ Copy `.env.example` locally and set values through Vercel project settings in pr
 5. Connect in read-only mode and verify account currency/timezone before the first sync.
 6. Map conversion actions into Inquiry, Qualified lead, Proposal, Booked event, and Revenue collected.
 7. Do not approve uploads until tracking tests pass, ownership is confirmed, customer data terms are accepted, and deduplication fixtures pass. Record explicit approval in `audit_log`.
+8. Leave `GOOGLE_ADS_UPLOADS_ENABLED` unset during staging. The current release creates encrypted, deduplicated candidates and dry-run previews only; it contains no Google Ads mutation call. Enabling the variable alone cannot upload data.
 
 ## 5. Search Console
 
@@ -67,7 +68,7 @@ Only configure `/api/webhooks/proposal-activity` when a supported proposal provi
 
 ## 11. Vercel and schedules
 
-Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` schedules HoneyBook retries, hourly Gmail metadata sync, daily Google Ads and Search Console sync, and daily integration-health checks. Disable a schedule until its connector has been tested independently. Provider failures create partial/failed `sync_runs` without blocking other sources.
+Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` schedules HoneyBook retries, hourly Gmail metadata sync, daily Google Ads and Search Console sync, integration-health checks, dry-run conversion staging, and operational recommendations. Disable a schedule until its connector has been tested independently. Provider failures create partial/failed `sync_runs` without blocking other sources.
 
 ## 12. Rotation and disconnection
 

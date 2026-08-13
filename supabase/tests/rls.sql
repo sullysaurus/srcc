@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap;
-select plan(13);
+select plan(20);
 select has_table('public','organizations','organizations table exists');
 select has_table('public','projects','projects table exists');
 select ok((select relrowsecurity from pg_class where oid='public.projects'::regclass),'projects has RLS enabled');
@@ -10,6 +10,13 @@ select ok((select relrowsecurity from pg_class where oid='public.google_ads_conv
 select has_table('public','attribution_sessions','attribution sessions table exists');
 select ok((select relrowsecurity from pg_class where oid='public.attribution_sessions'::regclass),'attribution sessions have RLS enabled');
 select ok((select relrowsecurity from pg_class where oid='public.attribution_touch_events'::regclass),'attribution touches have RLS enabled');
+select has_table('public','conversion_upload_gates','conversion upload gates table exists');
+select has_table('public','operational_alerts','operational alerts table exists');
+select has_table('public','recommendations','recommendations table exists');
+select ok((select relrowsecurity from pg_class where oid='public.conversion_upload_gates'::regclass),'conversion upload gates have RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.operational_alerts'::regclass),'operational alerts have RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.recommendations'::regclass),'recommendations have RLS enabled');
+select is((select count(*) from public.conversion_upload_gates where organization_id=(select id from public.organizations where slug='southern-revelry')),5::bigint,'all conversion gates are seeded');
 
 insert into auth.users (id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 values ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','operator@example.com','',now(),'{}','{}',now(),now());
