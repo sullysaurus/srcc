@@ -14,16 +14,14 @@ const serviceOptions = [
   "Unknown",
 ];
 const statusOptions = [
-  "Inquiry",
-  "Contacted",
-  "Qualified",
-  "Proposal Sent",
-  "Follow-up",
-  "Proposal Signed",
-  "Retainer Paid",
-  "Planning",
+  "Proposal sent",
   "Completed",
-  "Lost",
+  "Retainer paid",
+  "Planning",
+  "Inquiry",
+  "Follow-up",
+  "Proposal signed",
+  "Meeting",
   "Archived",
 ];
 
@@ -38,10 +36,11 @@ export default async function MappingQueuePage({
     ? await context.supabase
         .from("mapping_queue")
         .select(
-          "id,field_name,source_value,suggested_value,affected_count,created_at,source_records(raw_values,source_row_number,source_tab)",
+          "id,field_name,source_value,suggested_value,affected_count,created_at,source_records!inner(raw_values,normalized_values,source_row_number,source_tab,source_type)",
         )
         .eq("organization_id", context.organizationId)
         .eq("status", "pending")
+        .neq("source_records.source_type", "google_sheet")
         .order("created_at")
     : { data: [] };
   const rows = data ?? [];
@@ -49,7 +48,10 @@ export default async function MappingQueuePage({
   const groupedRows = Array.from(
     rows
       .reduce((groups, row) => {
-        const key = `${row.field_name}:${row.source_value}`;
+        const source = Array.isArray(row.source_records)
+          ? row.source_records[0]
+          : row.source_records;
+        const key = `${source?.source_type}:${row.field_name}:${row.source_value}`;
         const group = groups.get(key);
         if (group) group.push(row);
         else groups.set(key, [row]);
@@ -61,14 +63,14 @@ export default async function MappingQueuePage({
     <div className="pb-20 lg:pb-0">
       <div className="mb-7">
         <p className="font-mono text-[9px] font-bold tracking-[.15em] text-coral uppercase">
-          Data quality / Human decisions
+          Live data quality / Human decisions
         </p>
         <h1 className="mt-2 font-display text-4xl tracking-[-.04em] sm:text-5xl">
           Ambiguity belongs in the light.
         </h1>
         <p className="mt-3 text-sm text-ink/52">
-          No fuzzy matches. Approved decisions apply to matching pending rows
-          and are remembered for future imports.
+          Only active HoneyBook and provider issues appear here. Historical
+          Google Sheet mappings remain archived and never clutter this queue.
         </p>
       </div>
       {params.resolved ? (
@@ -90,7 +92,7 @@ export default async function MappingQueuePage({
           <div className="flex items-center gap-2">
             <AlertCircle className="size-4 text-coral" />
             <p className="text-xs font-bold">
-              {rows.length} source rows need review
+              {rows.length} live source rows need review
             </p>
           </div>
           <span className="rounded-full bg-coral px-2.5 py-1 font-mono text-[9px] font-bold text-white">
@@ -112,15 +114,27 @@ export default async function MappingQueuePage({
               <tbody className="divide-y">
                 {groupedRows.map((group) => {
                   const row = group[0];
+                  const rowSource = Array.isArray(row.source_records)
+                    ? row.source_records[0]
+                    : row.source_records;
                   const options =
                     row.field_name === "service"
                       ? serviceOptions
-                      : statusOptions;
+                      : ["status", "pipeline_stage"].includes(row.field_name)
+                        ? statusOptions
+                        : [];
                   return (
-                    <tr key={`${row.field_name}:${row.source_value}`}>
+                    <tr
+                      key={`${rowSource?.source_type}:${row.field_name}:${row.source_value}`}
+                    >
                       <td className="px-5 py-4">
                         <p className="font-mono text-xs font-bold">
                           {row.source_value}
+                        </p>
+                        <p className="mt-1 text-[8px] font-bold tracking-wide text-ink/35 uppercase">
+                          {String(
+                            rowSource?.source_type ?? "provider",
+                          ).replaceAll("_", " ")}
                         </p>
                         <details className="mt-2 text-[9px] text-ink/42">
                           <summary className="flex cursor-pointer items-center gap-1">
@@ -136,12 +150,16 @@ export default async function MappingQueuePage({
                                 : item.source_records;
                               return (
                                 <div key={item.id}>
-                                  <p className="mb-1 font-bold text-marigold">
-                                    Row {itemSource?.source_row_number}
+                                  <p className="mb-2 font-bold text-marigold">
+                                    {itemSource?.source_row_number
+                                      ? `Row ${itemSource.source_row_number}`
+                                      : "Provider event"}
                                   </p>
-                                  <pre>
+                                  <pre className="whitespace-pre-wrap">
                                     {JSON.stringify(
-                                      itemSource?.raw_values ?? {},
+                                      itemSource?.normalized_values ??
+                                        itemSource?.raw_values ??
+                                        {},
                                       null,
                                       2,
                                     )}
@@ -167,19 +185,31 @@ export default async function MappingQueuePage({
                           action={applyMappingDecision}
                         >
                           <input type="hidden" name="queueId" value={row.id} />
-                          <select
-                            name="canonicalValue"
-                            aria-label={`Map ${row.source_value}`}
-                            defaultValue={row.suggested_value ?? options[0]}
-                            className="h-9 rounded-lg border bg-white px-2 text-xs font-bold"
-                          >
-                            {options.map((option) => (
-                              <option key={option}>{option}</option>
-                            ))}
-                            <option value="__exclude__">
-                              Exclude this value
-                            </option>
-                          </select>
+                          {options.length ? (
+                            <select
+                              name="canonicalValue"
+                              aria-label={`Map ${row.source_value}`}
+                              defaultValue={row.suggested_value ?? options[0]}
+                              className="h-9 rounded-lg border bg-white px-2 text-xs font-bold"
+                            >
+                              {options.map((option) => (
+                                <option key={option}>{option}</option>
+                              ))}
+                              <option value="__exclude__">
+                                Exclude this value
+                              </option>
+                            </select>
+                          ) : (
+                            <select
+                              name="canonicalValue"
+                              aria-label={`Resolve ${row.source_value}`}
+                              className="h-9 rounded-lg border bg-white px-2 text-xs font-bold"
+                            >
+                              <option value="__exclude__">
+                                Dismiss from live queue
+                              </option>
+                            </select>
+                          )}
                         </form>
                       </td>
                       <td className="px-5 py-4 text-right">
@@ -203,7 +233,8 @@ export default async function MappingQueuePage({
               The mapping queue is clear
             </p>
             <p className="mt-2 text-xs text-ink/45">
-              Ambiguous imported values will appear here.
+              Ambiguous live provider values will appear here. Historical Sheet
+              rows remain available in the archive.
             </p>
           </div>
         )}

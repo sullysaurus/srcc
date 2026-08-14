@@ -17,11 +17,15 @@ const savedViews = [
 ] as const;
 
 const honeyBookStageOrder = [
-  "Inquiry",
   "Proposal sent",
+  "Completed",
   "Retainer paid",
   "Planning",
-  "Completed",
+  "Inquiry",
+  "Follow-up",
+  "Proposal signed",
+  "Meeting",
+  "Archived",
 ];
 
 function dateLabel(value: string | null) {

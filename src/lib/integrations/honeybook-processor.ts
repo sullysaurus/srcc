@@ -25,7 +25,7 @@ async function sourceRecord(organizationId: string, payload: Payload) {
       {
         organization_id: organizationId,
         source_type: "honeybook_zapier",
-        provider_record_id: payload.event_id,
+        provider_record_id: payload.project_id ?? payload.event_id,
         raw_values: {
           event: payload.event,
           event_id: payload.event_id,

@@ -5,6 +5,7 @@ export const PIPELINE_STAGES = [
   "Proposal Sent",
   "Follow-up",
   "Proposal Signed",
+  "Meeting",
   "Retainer Paid",
   "Planning",
   "Completed",

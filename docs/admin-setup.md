@@ -46,6 +46,8 @@ Copy `.env.example` locally and set values through Vercel project settings in pr
 
 Open **Integrations → HoneyBook** and turn on automatic sync before testing. Create Zaps only for supported triggers: new inquiry, client created, project stage changed, project booked, payment received, and meeting scheduled. POST to `/api/webhooks/honeybook` with `x-webhook-secret`, `x-organization-id`, a unique event ID, and UTC occurrence time. Always map the stable HoneyBook project ID and exact HoneyBook stage. Map service, money, recent-activity, and project-link fields only when the selected trigger actually exposes them. The endpoint verifies the secret, enforces the enabled state and replay window, validates the payload, deduplicates it, and retains only a redacted payload summary. Proposal views and complete message history are not inferred from HoneyBook.
 
+Use a dedicated Southern Revelry-owned Zapier account under a company email. The Professional plan is sufficient when one administrator maintains the workflows; use Team only when separate user logins, shared folders, or shared app connections are required. Record the recurring subscription openly in the client handoff. Do not make a consultant's personal Zapier account the only owner of production automations.
+
 ### Manual HoneyBook alternative
 
 If Zapier is not enabled, export projects from HoneyBook and upload the CSV from the same HoneyBook integration panel. Include `Project ID` or `Project URL`; rows without either value are retained for review and do not update live projects. Repeated imports update by stable HoneyBook project ID. Use `/honeybook-import-template.csv` when the exported column names need to be rearranged.

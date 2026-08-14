@@ -108,10 +108,11 @@ export async function CommandShell({ children }: { children: ReactNode }) {
               <HeartHandshake className="size-4 text-marigold" /> Today’s pulse
             </div>
             <p className="mt-2 text-xs leading-5 text-white/55">
-              {state.pipelineCount} projects are in the live ledger.{" "}
+              {state.pipelineCount} HoneyBook project
+              {state.pipelineCount === 1 ? " is" : "s are"} in the live ledger.{" "}
               {state.mappingCount
-                ? `${state.mappingCount} imported values need review.`
-                : "No imported values need review."}
+                ? `${state.mappingCount} live provider value${state.mappingCount === 1 ? "" : "s"} need review.`
+                : "No live provider values need review."}
             </p>
             <Link
               href="/pipeline"
@@ -145,16 +146,24 @@ export async function CommandShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-2 rounded-full border border-moss/20 bg-moss/8 px-3 py-1.5 text-[10px] font-bold text-moss sm:flex">
-              <span className="size-1.5 rounded-full bg-moss" /> Core data
-              healthy
+            <span
+              className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold sm:flex ${state.healthWarnings ? "border-marigold/35 bg-marigold/12 text-[#805e13]" : "border-moss/20 bg-moss/8 text-moss"}`}
+            >
+              <span
+                className={`size-1.5 rounded-full ${state.healthWarnings ? "bg-marigold" : "bg-moss"}`}
+              />
+              {state.healthWarnings
+                ? `${state.healthWarnings} integration warning${state.healthWarnings === 1 ? "" : "s"}`
+                : "No integration warnings"}
             </span>
             <button
               className="relative grid size-9 place-items-center rounded-full border bg-white"
               aria-label="Notifications"
             >
               <Bell className="size-4" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-coral" />
+              {state.healthWarnings || state.mappingCount ? (
+                <span className="absolute right-2 top-2 size-1.5 rounded-full bg-coral" />
+              ) : null}
             </button>
           </div>
         </header>

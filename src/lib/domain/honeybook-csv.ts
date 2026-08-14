@@ -48,11 +48,15 @@ const aliases = {
 } as const;
 
 export const honeyBookStages = [
-  { key: "inquiry", name: "Inquiry", order: 1 },
-  { key: "proposal_sent", name: "Proposal sent", order: 2 },
+  { key: "proposal_sent", name: "Proposal sent", order: 1 },
+  { key: "completed", name: "Completed", order: 2 },
   { key: "retainer_paid", name: "Retainer paid", order: 3 },
   { key: "planning", name: "Planning", order: 4 },
-  { key: "completed", name: "Completed", order: 5 },
+  { key: "inquiry", name: "Inquiry", order: 5 },
+  { key: "follow_up", name: "Follow-up", order: 6 },
+  { key: "proposal_signed", name: "Proposal signed", order: 7 },
+  { key: "meeting", name: "Meeting", order: 8 },
+  { key: "archived", name: "Archived", order: 9 },
 ] as const;
 
 const stageByLabel = new Map(

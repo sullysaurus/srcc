@@ -753,12 +753,17 @@ export async function loadShellState() {
     context.supabase
       .from("projects")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", context.organizationId),
+      .eq("organization_id", context.organizationId)
+      .eq("source_origin", "honeybook"),
     context.supabase
       .from("mapping_queue")
-      .select("id", { count: "exact", head: true })
+      .select("id,source_records!inner(source_type)", {
+        count: "exact",
+        head: true,
+      })
       .eq("organization_id", context.organizationId)
-      .eq("status", "pending"),
+      .eq("status", "pending")
+      .neq("source_records.source_type", "google_sheet"),
     context.supabase
       .from("integration_health_issues")
       .select("id", { count: "exact", head: true })

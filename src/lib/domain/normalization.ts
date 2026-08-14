@@ -39,6 +39,7 @@ const stageAliases: Record<string, PipelineStage> = {
   "follow up": "Follow-up",
   signed: "Proposal Signed",
   "proposal signed": "Proposal Signed",
+  meeting: "Meeting",
   booked: "Retainer Paid",
   "retainer paid": "Retainer Paid",
   planning: "Planning",
@@ -71,7 +72,13 @@ export function normalizeService(input: unknown): NormalizedValue<ServiceName> {
   const original = String(input ?? "").trim();
   const normalized = clean(input);
   const direct = serviceAliases[normalized];
-  if (direct) return { original, value: direct, confidence: "exact", requiresReview: false };
+  if (direct)
+    return {
+      original,
+      value: direct,
+      confidence: "exact",
+      requiresReview: false,
+    };
 
   const matches = Object.entries(serviceAliases)
     .filter(([alias]) => normalized.includes(alias))
@@ -79,12 +86,27 @@ export function normalizeService(input: unknown): NormalizedValue<ServiceName> {
     .filter((value, index, list) => list.indexOf(value) === index);
 
   if (matches.length > 1) {
-    return { original, value: "Multiple Services", confidence: "rule", requiresReview: false };
+    return {
+      original,
+      value: "Multiple Services",
+      confidence: "rule",
+      requiresReview: false,
+    };
   }
   if (matches.length === 1) {
-    return { original, value: matches[0], confidence: "rule", requiresReview: false };
+    return {
+      original,
+      value: matches[0],
+      confidence: "rule",
+      requiresReview: false,
+    };
   }
-  return { original, value: null, confidence: "ambiguous", requiresReview: true };
+  return {
+    original,
+    value: null,
+    confidence: "ambiguous",
+    requiresReview: true,
+  };
 }
 
 export function normalizeStage(input: unknown): NormalizedValue<PipelineStage> {

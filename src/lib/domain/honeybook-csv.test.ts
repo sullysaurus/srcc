@@ -45,4 +45,32 @@ describe("HoneyBook CSV import", () => {
     expect(row.normalizedValues.stageKey).toBeNull();
     expect(row.validationErrors[0]).toContain("Unrecognized HoneyBook stage");
   });
+
+  it("recognizes every stage in the live Southern Revelry HoneyBook pipeline", () => {
+    const csv = [
+      "Project ID,Project Stage",
+      "1,Proposal sent",
+      "2,Completed",
+      "3,Retainer paid",
+      "4,Planning",
+      "5,Inquiry",
+      "6,Follow-up",
+      "7,Proposal signed",
+      "8,Meeting",
+      "9,Archived",
+    ].join("\n");
+    const rows = previewHoneyBookCsv(csv);
+    expect(rows.map((row) => row.normalizedValues.stageKey)).toEqual([
+      "proposal_sent",
+      "completed",
+      "retainer_paid",
+      "planning",
+      "inquiry",
+      "follow_up",
+      "proposal_signed",
+      "meeting",
+      "archived",
+    ]);
+    expect(rows.flatMap((row) => row.validationErrors)).toEqual([]);
+  });
 });

@@ -26,6 +26,13 @@ const triggers = [
   ["Meeting scheduled", "meeting_scheduled"],
 ];
 
+const requiredTriggerEvents = [
+  "new_inquiry",
+  "project_stage_changed",
+  "project_booked",
+  "payment_received",
+];
+
 const errorMessages: Record<string, string> = {
   invalid_upload: "Choose a HoneyBook CSV smaller than 10 MB.",
   invalid_csv: "That file could not be read as a HoneyBook CSV export.",
@@ -53,6 +60,7 @@ export default async function HoneyBookSetupPage({
     { data: connections },
     { count: projectCount },
     { count: pendingMappings },
+    { data: webhookEvents },
   ] = await Promise.all([
     context.supabase
       .from("sync_connections")
@@ -73,6 +81,14 @@ export default async function HoneyBookSetupPage({
       .eq("organization_id", context.organizationId)
       .eq("status", "pending")
       .in("source_records.source_type", ["honeybook_csv", "honeybook_zapier"]),
+    context.supabase
+      .from("webhook_events")
+      .select("safe_payload")
+      .eq("organization_id", context.organizationId)
+      .eq("provider", "honeybook_zapier")
+      .eq("status", "succeeded")
+      .order("received_at", { ascending: false })
+      .limit(100),
   ]);
   const byProvider = new Map(
     (connections ?? []).map((row) => [row.provider, row]),
@@ -82,6 +98,21 @@ export default async function HoneyBookSetupPage({
   const automaticEnabled =
     automatic?.status !== "disabled" && Boolean(automatic);
   const webhookReady = Boolean(env.HONEYBOOK_WEBHOOK_SECRET);
+  const receivedEventTypes = new Set(
+    (webhookEvents ?? []).flatMap((event) => {
+      const payload = event.safe_payload as { event?: unknown } | null;
+      return typeof payload?.event === "string" ? [payload.event] : [];
+    }),
+  );
+  const testedTriggerCount = requiredTriggerEvents.filter((event) =>
+    receivedEventTypes.has(event),
+  ).length;
+  const zapsReady = testedTriggerCount === requiredTriggerEvents.length;
+  const automaticStatus = !automaticEnabled
+    ? "Off"
+    : zapsReady
+      ? "Live"
+      : "Enabled · setup incomplete";
 
   return (
     <div className="pb-20 lg:pb-0">
@@ -164,11 +195,7 @@ export default async function HoneyBookSetupPage({
                 <span
                   className={`rounded-full border px-2 py-1 font-mono text-[8px] font-bold uppercase ${automaticEnabled ? "border-moss/25 bg-moss/8 text-moss" : "bg-white text-ink/45"}`}
                 >
-                  {automaticEnabled
-                    ? automatic?.status === "connected"
-                      ? "Receiving events"
-                      : "Enabled · awaiting event"
-                    : "Off"}
+                  {automaticStatus}
                 </span>
               </div>
               <p className="mt-2 text-[11px] leading-5 text-ink/50">
@@ -204,11 +231,49 @@ export default async function HoneyBookSetupPage({
               testing the Zap.
             </p>
           ) : null}
-          <div className="mt-5 rounded-xl border bg-white/40 p-4">
-            <div className="flex items-center gap-2">
-              <KeyRound className="size-4 text-moss" />
-              <p className="text-xs font-bold">Zapier webhook destination</p>
-            </div>
+          <div className="mt-5 grid gap-2 rounded-xl border bg-white/40 p-4 sm:grid-cols-3">
+            {[
+              [
+                "Server receiver",
+                webhookReady,
+                webhookReady ? "Configured" : "Missing secret",
+              ],
+              [
+                "Required Zaps tested",
+                zapsReady,
+                `${testedTriggerCount} of ${requiredTriggerEvents.length}`,
+              ],
+              [
+                "Automatic sync",
+                automaticEnabled && zapsReady,
+                automaticEnabled && zapsReady ? "Live" : "Not live",
+              ],
+            ].map(([label, ready, detail]) => (
+              <div
+                key={String(label)}
+                className="rounded-lg border bg-white/55 p-3"
+              >
+                <p className="text-[9px] font-bold text-ink/45">{label}</p>
+                <p
+                  className={`mt-1 text-[10px] font-bold ${ready ? "text-moss" : "text-[#805e13]"}`}
+                >
+                  {detail}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[9px] leading-4 text-ink/45">
+            Once all four required Zaps are tested, the owner can safely pause
+            or resume automatic sync with this single toggle.
+          </p>
+          <details className="mt-5 rounded-xl border bg-white/40 p-4">
+            <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold">
+              <KeyRound className="size-4 text-moss" /> One-time administrator
+              setup
+            </summary>
+            <p className="mt-4 text-[10px] font-bold">
+              Zapier webhook destination
+            </p>
             <dl className="mt-3 space-y-3 text-[10px]">
               <div>
                 <dt className="text-ink/40">POST URL</dt>
@@ -229,7 +294,7 @@ export default async function HoneyBookSetupPage({
                 </dd>
               </div>
             </dl>
-          </div>
+          </details>
           <div className="mt-5">
             <p className="text-xs font-bold">Recommended triggers</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -238,11 +303,17 @@ export default async function HoneyBookSetupPage({
                   key={event}
                   className="flex items-start gap-2 rounded-lg border bg-white/35 p-3"
                 >
-                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-moss" />
+                  {receivedEventTypes.has(event) ? (
+                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-moss" />
+                  ) : (
+                    <Clock3 className="mt-0.5 size-3.5 shrink-0 text-[#805e13]" />
+                  )}
                   <div>
                     <p className="text-[10px] font-bold">{label}</p>
                     <p className="mt-1 font-mono text-[7px] text-ink/40">
-                      {event}
+                      {receivedEventTypes.has(event)
+                        ? "Test event received"
+                        : `Awaiting test · ${event}`}
                     </p>
                   </div>
                 </div>

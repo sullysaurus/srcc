@@ -16,9 +16,13 @@ const stageKeyByName: Record<string, string> = {
   Contacted: "contacted",
   Qualified: "qualified",
   "Proposal Sent": "proposal_sent",
+  "Proposal sent": "proposal_sent",
   "Follow-up": "follow_up",
   "Proposal Signed": "proposal_signed",
+  "Proposal signed": "proposal_signed",
+  Meeting: "meeting",
   "Retainer Paid": "retainer_paid",
+  "Retainer paid": "retainer_paid",
   Planning: "planning",
   Completed: "completed",
   Lost: "lost",
@@ -71,7 +75,7 @@ export async function applyMappingDecision(formData: FormData) {
   const { data: queues } = await admin
     .from("mapping_queue")
     .select(
-      "id,source_record_id,source_records!inner(source_spreadsheet_id,source_tab,source_row_number,source_type)",
+      "id,source_record_id,source_records!inner(source_spreadsheet_id,source_tab,source_row_number,source_type,provider_record_id)",
     )
     .eq("organization_id", context.organizationId)
     .eq("field_name", selected.field_name)
@@ -83,16 +87,27 @@ export async function applyMappingDecision(formData: FormData) {
       const record = Array.isArray(queue.source_records)
         ? queue.source_records[0]
         : queue.source_records;
-      const projectQuery = admin
+      let projectQuery = admin
         .from("projects")
         .select("id")
-        .eq("organization_id", context.organizationId)
-        .eq("source_spreadsheet_id", record.source_spreadsheet_id)
-        .eq("source_tab", record.source_tab)
-        .eq("source_row_number", record.source_row_number);
+        .eq("organization_id", context.organizationId);
+      if (sourceType === "google_sheet")
+        projectQuery = projectQuery
+          .eq("source_spreadsheet_id", record.source_spreadsheet_id)
+          .eq("source_tab", record.source_tab)
+          .eq("source_row_number", record.source_row_number);
+      else if (
+        sourceType === "honeybook_csv" ||
+        sourceType === "honeybook_zapier"
+      )
+        projectQuery = projectQuery.eq(
+          "honeybook_project_id",
+          record.provider_record_id,
+        );
+      else continue;
       const { data: project } = await projectQuery.maybeSingle();
       if (!project) continue;
-      if (selected.field_name === "status") {
+      if (["status", "pipeline_stage"].includes(selected.field_name)) {
         const stageKey = stageKeyByName[parsed.data.canonicalValue];
         const { data: stage } = stageKey
           ? await admin
@@ -116,18 +131,18 @@ export async function applyMappingDecision(formData: FormData) {
           .eq("name", parsed.data.canonicalValue)
           .maybeSingle();
         if (service)
-          await admin
-            .from("project_services")
-            .upsert(
-              {
-                organization_id: context.organizationId,
-                project_id: project.id,
-                service_id: service.id,
-                source_origin: "google_sheet",
-                original_value: selected.source_value,
-              },
-              { onConflict: "project_id,service_id" },
-            );
+          await admin.from("project_services").upsert(
+            {
+              organization_id: context.organizationId,
+              project_id: project.id,
+              service_id: service.id,
+              source_origin: sourceType.startsWith("honeybook")
+                ? "honeybook"
+                : "google_sheet",
+              original_value: selected.source_value,
+            },
+            { onConflict: "project_id,service_id" },
+          );
       }
     }
   const queueIds = (queues ?? []).map((queue) => queue.id);
@@ -141,20 +156,18 @@ export async function applyMappingDecision(formData: FormData) {
         resolved_at: new Date().toISOString(),
       })
       .in("id", queueIds);
-  await admin
-    .from("audit_log")
-    .insert({
-      organization_id: context.organizationId,
-      actor_user_id: context.user.id,
-      action: "mapping_rule.applied",
-      entity_type: "mapping_rule",
-      entity_id: rule.id,
-      new_value: {
-        field: selected.field_name,
-        source_value: selected.source_value,
-        canonical_value: excluded ? null : parsed.data.canonicalValue,
-        affected: queueIds.length,
-      },
-    });
+  await admin.from("audit_log").insert({
+    organization_id: context.organizationId,
+    actor_user_id: context.user.id,
+    action: "mapping_rule.applied",
+    entity_type: "mapping_rule",
+    entity_id: rule.id,
+    new_value: {
+      field: selected.field_name,
+      source_value: selected.source_value,
+      canonical_value: excluded ? null : parsed.data.canonicalValue,
+      affected: queueIds.length,
+    },
+  });
   redirect(`/mapping-queue?resolved=${queueIds.length}`);
 }
