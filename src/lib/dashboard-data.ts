@@ -630,6 +630,7 @@ export async function loadCommandCenter() {
         "cost_cents,clicks,impressions,conversions,conversion_value_cents,date",
       )
       .eq("organization_id", context.organizationId)
+      .eq("entity_type", "campaign")
       .gte("date", monthStart.slice(0, 10)),
     context.supabase
       .from("search_console_daily_metrics")
