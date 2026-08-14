@@ -13,7 +13,7 @@
 ## Safe phases
 
 1. **Foundation — implemented:** identity/RLS, historical CSV import, normalized pipeline, manual follow-ups/services, provenance, audit/sync health, accessible responsive shell.
-2. **Read-only providers — implemented:** HoneyBook/Zapier event processor with encrypted retained payloads and dead-letter retries; Google OAuth with PKCE, encrypted refresh tokens, Ads reporting sync, Search Console property selection/reporting, scheduler routes, and provider health diagnostics. Real credentials and payload mapping still require administrator setup.
+2. **Read-only providers — implemented:** HoneyBook/Zapier event processor with encrypted retained payloads and daily dead-letter retries; Google OAuth with PKCE, encrypted refresh tokens, Ads reporting sync, Search Console property selection/reporting, scheduler routes, and provider health diagnostics. Real credentials and payload mapping still require administrator setup.
 3. **Closed loop — implemented:** privacy-conscious website attribution capture and signed claim tokens, exact HoneyBook project linking, Gmail metadata-only synchronization with mapping queue, separately authenticated proposal-view intake, and page-level organic/revenue reporting without person-level Search Console query claims.
 4. **Guarded automation — staging implemented:** enhanced-conversion/offline outcome candidates, deterministic deduplication, encrypted click IDs, hashed user data, local dry-run validation, owner-recorded prerequisites, operational alerts, and recommendations. The Google Ads mutation executor is intentionally absent. Production activation still requires all five recorded gates plus the server kill switch and a separate release implementing and testing the provider write call.
 

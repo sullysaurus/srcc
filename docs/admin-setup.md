@@ -68,7 +68,7 @@ Only configure `/api/webhooks/proposal-activity` when a supported proposal provi
 
 ## 11. Vercel and schedules
 
-Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` schedules HoneyBook retries, hourly Gmail metadata sync, daily Google Ads and Search Console sync, integration-health checks, dry-run conversion staging, and operational recommendations. Disable a schedule until its connector has been tested independently. Provider failures create partial/failed `sync_runs` without blocking other sources.
+Import the repository into Vercel, configure all environment variables, and deploy. `vercel.json` uses Hobby-compatible daily schedules for HoneyBook retries, Gmail metadata sync, Google Ads, Search Console, integration-health checks, dry-run conversion staging, and operational recommendations. Verified HoneyBook webhooks still ingest events near real time. Disable a schedule until its connector has been tested independently. Provider failures create partial/failed `sync_runs` without blocking other sources. Vercel Hobby schedules may run at any point within the configured hour.
 
 ## 12. Rotation and disconnection
 
