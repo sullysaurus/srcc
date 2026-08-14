@@ -1,5 +1,6 @@
 import { getOrganizationContext } from "@/lib/auth/organization-context";
 import { env } from "@/lib/env";
+import { addDaysToDateKey, dateKeyInTimeZone, startOfDateInTimeZone } from "@/lib/domain/dates";
 
 async function organizationContext() {
   const context = await getOrganizationContext();
@@ -575,13 +576,12 @@ export async function loadCommandCenter() {
   const context = await organizationContext();
   if (!context) return null;
   const now = new Date();
-  const monthStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  ).toISOString();
-  const todayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  ).toISOString();
-  const todayEnd = new Date(Date.parse(todayStart) + 86_400_000).toISOString();
+  const timeZone = "America/Chicago";
+  const todayKey = dateKeyInTimeZone(now,timeZone);
+  const monthStartKey = `${todayKey.slice(0,7)}-01`;
+  const monthStart = startOfDateInTimeZone(monthStartKey,timeZone);
+  const todayStart = startOfDateInTimeZone(todayKey,timeZone);
+  const todayEnd = startOfDateInTimeZone(addDaysToDateKey(todayKey,1),timeZone);
   const [
     projects,
     { data: activities },
@@ -671,8 +671,8 @@ export async function loadCommandCenter() {
   );
   return {
     range: {
-      start: monthStart.slice(0, 10),
-      end: now.toISOString().slice(0, 10),
+      start: monthStartKey,
+      end: todayKey,
     },
     projects,
     attention,
