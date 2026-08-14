@@ -33,8 +33,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
   const parsed = honeyBookWebhookSchema.safeParse(json);
-  if (!parsed.success)
-    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(({ code, path, message }) => ({
+      code,
+      path,
+      message,
+    }));
+    console.warn("honeybook_webhook_invalid_payload", { issues });
+    return NextResponse.json(
+      { error: "invalid_payload", issues },
+      { status: 400 },
+    );
+  }
   const organizationId = request.headers.get("x-organization-id");
   if (!organizationId)
     return NextResponse.json(
