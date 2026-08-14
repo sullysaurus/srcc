@@ -122,13 +122,13 @@ export default async function IntegrationsPage() {
             item.provider === "search_console" ||
             item.provider === "gmail" ||
             item.provider === "google_sheets" ? (
-              <Link
+              <a
                 href={`/api/google/oauth/start?provider=${item.provider}`}
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
               >
                 <KeyRound className="size-3.5" />{" "}
                 {item.status === "connected" ? "Reconnect" : "Connect"}
-              </Link>
+              </a>
             ) : item.provider === "honeybook_zapier" ? (
               <Link
                 href="/integrations/honeybook"
