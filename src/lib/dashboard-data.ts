@@ -126,6 +126,7 @@ export async function loadSearchSummary() {
     .from("search_console_daily_metrics")
     .select("query,clicks,impressions,ctr,average_position,date")
     .eq("organization_id", context.organizationId)
+    .eq("search_appearance", "")
     .gte("date", start);
   if (!data?.length) return null;
   const grouped = new Map<
@@ -194,6 +195,7 @@ export async function loadAttributionReport() {
       .from("search_console_daily_metrics")
       .select("page,clicks,impressions")
       .eq("organization_id", context.organizationId)
+      .eq("search_appearance", "")
       .gte(
         "date",
         new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10),
@@ -633,6 +635,7 @@ export async function loadCommandCenter() {
       .from("search_console_daily_metrics")
       .select("clicks,impressions,ctr,average_position,date")
       .eq("organization_id", context.organizationId)
+      .eq("search_appearance", "")
       .gte("date", monthStart.slice(0, 10)),
     context.supabase
       .from("sync_connections")

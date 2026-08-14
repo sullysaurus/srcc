@@ -14,7 +14,7 @@ export class GoogleAdsRestProvider implements GoogleAdsProvider {
     const customerId=this.config.customerId.replace(/\D/g,"");
     const headers:Record<string,string>={ authorization:`Bearer ${this.config.accessToken}`,"developer-token":this.config.developerToken,"content-type":"application/json" };
     if(this.config.managerCustomerId) headers["login-customer-id"]=this.config.managerCustomerId.replace(/\D/g,"");
-    const response=await providerFetch(`https://googleads.googleapis.com/${this.config.apiVersion}/customers/${customerId}:searchStream`,{method:"POST",headers,body:JSON.stringify({query})},"google_ads");
+    const response=await providerFetch(`https://googleads.googleapis.com/${this.config.apiVersion}/customers/${customerId}/googleAds:searchStream`,{method:"POST",headers,body:JSON.stringify({query})},"google_ads");
     return streamSchema.parse(await response.json()).flatMap(batch=>batch.results);
   }
   async getCampaignDaily({startDate,endDate}:{startDate:string;endDate:string}):Promise<AdsDailyRow[]> {
