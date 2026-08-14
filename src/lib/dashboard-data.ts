@@ -752,7 +752,7 @@ export async function loadShellState() {
   const [
     { count: pipelineCount },
     { count: mappingCount },
-    { count: healthWarnings },
+    { data: healthIssues },
   ] = await Promise.all([
     context.supabase
       .from("projects")
@@ -770,13 +770,15 @@ export async function loadShellState() {
       .neq("source_records.source_type", "google_sheet"),
     context.supabase
       .from("integration_health_issues")
-      .select("id", { count: "exact", head: true })
+      .select("provider,issue_key")
       .eq("organization_id", context.organizationId)
       .is("resolved_at", null),
   ]);
   return {
     pipelineCount: pipelineCount ?? 0,
     mappingCount: mappingCount ?? 0,
-    healthWarnings: healthWarnings ?? 0,
+    healthWarnings: new Set(
+      (healthIssues ?? []).map((issue) => `${issue.provider}:${issue.issue_key}`),
+    ).size,
   };
 }
