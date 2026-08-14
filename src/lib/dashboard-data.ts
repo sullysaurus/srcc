@@ -1,6 +1,10 @@
 import { getOrganizationContext } from "@/lib/auth/organization-context";
 import { env } from "@/lib/env";
-import { addDaysToDateKey, dateKeyInTimeZone, startOfDateInTimeZone } from "@/lib/domain/dates";
+import {
+  addDaysToDateKey,
+  dateKeyInTimeZone,
+  startOfDateInTimeZone,
+} from "@/lib/domain/dates";
 
 async function organizationContext() {
   const context = await getOrganizationContext();
@@ -465,13 +469,17 @@ function mapProject(row: ProjectRow): LiveProject {
     : sourceLabel;
   const bookedCents = Number(row.booked_value_cents ?? 0);
   const collectedCents = Number(row.collected_cents ?? 0);
+  const rawProviderFields = one(row.raw_provider_fields) ?? {};
   return {
     id: String(row.id),
     name: stringOrNull(row.name) ?? (contactName || "Unnamed lead"),
     contactName: contactName || stringOrNull(row.name) || "Unnamed lead",
     email: stringOrNull(contact?.email_normalized),
     phone: stringOrNull(contact?.phone_e164),
-    stage: stringOrNull(stage?.name) ?? "Needs mapping",
+    stage:
+      stringOrNull(rawProviderFields.honeybook_stage_name) ??
+      stringOrNull(stage?.name) ??
+      "Needs mapping",
     stageKey: stringOrNull(stage?.key),
     source: sourceLabel,
     sourceOrigin: String(row.source_origin ?? "manual"),
@@ -508,7 +516,7 @@ function mapProject(row: ProjectRow): LiveProject {
 }
 
 const projectSelect =
-  "id,name,event_type,event_at,venue_name,city,region,lead_source,source_origin,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
+  "id,name,event_type,event_at,venue_name,city,region,lead_source,source_origin,raw_provider_fields,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
 
 export async function loadPipelineProjects() {
   const context = await organizationContext();
@@ -517,6 +525,7 @@ export async function loadPipelineProjects() {
     .from("projects")
     .select(projectSelect)
     .eq("organization_id", context.organizationId)
+    .eq("source_origin", "honeybook")
     .order("created_at", { ascending: false });
   if (error) throw new Error("The live pipeline could not be loaded");
   return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
@@ -577,11 +586,14 @@ export async function loadCommandCenter() {
   if (!context) return null;
   const now = new Date();
   const timeZone = "America/Chicago";
-  const todayKey = dateKeyInTimeZone(now,timeZone);
-  const monthStartKey = `${todayKey.slice(0,7)}-01`;
-  const monthStart = startOfDateInTimeZone(monthStartKey,timeZone);
-  const todayStart = startOfDateInTimeZone(todayKey,timeZone);
-  const todayEnd = startOfDateInTimeZone(addDaysToDateKey(todayKey,1),timeZone);
+  const todayKey = dateKeyInTimeZone(now, timeZone);
+  const monthStartKey = `${todayKey.slice(0, 7)}-01`;
+  const monthStart = startOfDateInTimeZone(monthStartKey, timeZone);
+  const todayStart = startOfDateInTimeZone(todayKey, timeZone);
+  const todayEnd = startOfDateInTimeZone(
+    addDaysToDateKey(todayKey, 1),
+    timeZone,
+  );
   const [
     projects,
     { data: activities },

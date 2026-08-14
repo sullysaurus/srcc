@@ -26,7 +26,7 @@ const navigation = [
   { href: "/attribution", label: "Attribution", icon: Link2 },
   { href: "/communications", label: "Communications", icon: Mail },
   { href: "/automation", label: "Automation & Alerts", icon: ShieldCheck },
-  { href: "/imports", label: "Historical Import", icon: Import },
+  { href: "/imports", label: "Historical Archive", icon: Import },
   { href: "/mapping-queue", label: "Mapping Queue", icon: Map },
   {
     href: "/integrations",

@@ -51,6 +51,21 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   const supabase = createAdminSupabaseClient();
+  const { data: connection } = await supabase
+    .from("sync_connections")
+    .select("status,configuration")
+    .eq("organization_id", organizationId)
+    .eq("provider", "honeybook_zapier")
+    .maybeSingle();
+  const configuration = connection?.configuration as {
+    enabled?: boolean;
+  } | null;
+  if (
+    !connection ||
+    connection.status === "disabled" ||
+    configuration?.enabled !== true
+  )
+    return NextResponse.json({ error: "connection_disabled" }, { status: 503 });
   const { data: inserted, error } = await supabase
     .from("webhook_events")
     .insert({
@@ -96,30 +111,29 @@ export async function POST(request: Request) {
           error_summary: null,
         })
         .eq("id", webhookId),
-      supabase
-        .from("sync_connections")
-        .upsert(
-          {
-            organization_id: organizationId,
-            provider: "honeybook_zapier",
-            display_name: "HoneyBook via Zapier",
-            status: "connected",
-            configuration: {
-              transport: "zapier_webhook",
-              supportedEvents: [
-                "new_inquiry",
-                "client_created",
-                "project_stage_changed",
-                "project_booked",
-                "payment_received",
-                "meeting_scheduled",
-              ],
-            },
-            last_attempt_at: new Date().toISOString(),
-            last_success_at: new Date().toISOString(),
+      supabase.from("sync_connections").upsert(
+        {
+          organization_id: organizationId,
+          provider: "honeybook_zapier",
+          display_name: "HoneyBook via Zapier",
+          status: "connected",
+          configuration: {
+            transport: "zapier_webhook",
+            enabled: true,
+            supportedEvents: [
+              "new_inquiry",
+              "client_created",
+              "project_stage_changed",
+              "project_booked",
+              "payment_received",
+              "meeting_scheduled",
+            ],
           },
-          { onConflict: "organization_id,provider" },
-        ),
+          last_attempt_at: new Date().toISOString(),
+          last_success_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id,provider" },
+      ),
     ]);
     return NextResponse.json({ accepted: true }, { status: 202 });
   } catch (processingError) {
@@ -132,19 +146,17 @@ export async function POST(request: Request) {
         .from("webhook_events")
         .update({ status: "failed", error_summary: summary.slice(0, 300) })
         .eq("id", webhookId),
-      supabase
-        .from("sync_connections")
-        .upsert(
-          {
-            organization_id: organizationId,
-            provider: "honeybook_zapier",
-            display_name: "HoneyBook via Zapier",
-            status: "failed",
-            configuration: { transport: "zapier_webhook" },
-            last_attempt_at: new Date().toISOString(),
-          },
-          { onConflict: "organization_id,provider" },
-        ),
+      supabase.from("sync_connections").upsert(
+        {
+          organization_id: organizationId,
+          provider: "honeybook_zapier",
+          display_name: "HoneyBook via Zapier",
+          status: "failed",
+          configuration: { transport: "zapier_webhook", enabled: true },
+          last_attempt_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id,provider" },
+      ),
     ]);
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }

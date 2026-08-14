@@ -16,6 +16,14 @@ const savedViews = [
   ["lost", "Lost leads"],
 ] as const;
 
+const honeyBookStageOrder = [
+  "Inquiry",
+  "Proposal sent",
+  "Retainer paid",
+  "Planning",
+  "Completed",
+];
+
 function dateLabel(value: string | null) {
   return value
     ? new Date(value).toLocaleDateString("en-US", {
@@ -42,10 +50,7 @@ function filterProjects(projects: LiveProject[], view: string, query: string) {
     if (query && !searchable.includes(query.toLowerCase())) return false;
     if (view === "new") return project.stageKey === "inquiry";
     if (view === "response")
-      return (
-        !project.lastContactAt &&
-        !["lost", "archived", "completed"].includes(project.stageKey ?? "")
-      );
+      return project.stageKey === "inquiry" && !project.lastContactAt;
     if (view === "followup")
       return Boolean(
         project.nextFollowUpAt &&
@@ -95,14 +100,14 @@ export default async function PipelinePage({
       <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="font-mono text-[9px] font-bold tracking-[.15em] text-coral uppercase">
-            Sales pipeline / {allProjects.length} live records
+            Sales pipeline / {allProjects.length} HoneyBook records
           </p>
           <h1 className="mt-2 font-display text-4xl tracking-[-.04em] sm:text-5xl">
             Every lead, one clear next step.
           </h1>
           <p className="mt-3 text-sm text-ink/52">
-            HoneyBook-owned values retain their source. Follow-ups and
-            temperature are maintained in this workspace.
+            Status, project details, and dollars mirror HoneyBook. Follow-ups
+            and temperature are maintained in this workspace.
           </p>
         </div>
         <div className="flex gap-2">
@@ -172,83 +177,82 @@ export default async function PipelinePage({
               No leads in this view
             </h2>
             <p className="mt-2 text-xs text-ink/45">
-              Import historical leads, connect HoneyBook, or choose another
-              saved view.
+              Turn on the Zapier connection or upload a HoneyBook CSV to begin.
             </p>
             <Link
-              href="/imports"
+              href="/integrations/honeybook"
               className="mt-4 inline-block text-xs font-bold text-coral"
             >
-              Open imports
+              Open HoneyBook setup
             </Link>
           </div>
         </section>
       ) : kanban ? (
         <div className="grid gap-4 overflow-x-auto pb-4 lg:grid-cols-3 xl:grid-cols-4">
-          {[...new Set(projects.map((project) => project.stage))].map(
-            (stage) => (
-              <section
-                key={stage}
-                className="min-w-72 rounded-xl border bg-ink/[.025] p-3"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-xs font-bold">{stage}</h2>
-                  <span className="rounded-full bg-ink px-2 py-1 font-mono text-[8px] text-white">
-                    {
-                      projects.filter((project) => project.stage === stage)
-                        .length
-                    }
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {projects
-                    .filter((project) => project.stage === stage)
-                    .map((project) => (
-                      <Link
-                        href={`/leads/${project.id}`}
-                        key={project.id}
-                        className="paper block rounded-lg border p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-                      >
-                        <p className="font-display text-lg font-semibold">
-                          {project.name}
-                        </p>
-                        <p className="mt-1 text-[9px] text-ink/45">
-                          {project.eventType} · {dateLabel(project.eventDate)}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          {project.services.map((service) => (
-                            <span
-                              key={service.name}
-                              className="rounded bg-turquoise/15 px-2 py-1 text-[8px] font-bold text-[#285e59]"
-                            >
-                              {service.name}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-4 flex justify-between border-t pt-3 text-[9px]">
-                          <span className="text-ink/45">Next follow-up</span>
-                          <strong>{dateLabel(project.nextFollowUpAt)}</strong>
-                        </div>
-                      </Link>
-                    ))}
-                </div>
-              </section>
+          {[
+            ...honeyBookStageOrder,
+            ...[...new Set(projects.map((project) => project.stage))].filter(
+              (stage) => !honeyBookStageOrder.includes(stage),
             ),
-          )}
+          ].map((stage) => (
+            <section
+              key={stage}
+              className="min-w-72 rounded-xl border bg-ink/[.025] p-3"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xs font-bold">{stage}</h2>
+                <span className="rounded-full bg-ink px-2 py-1 font-mono text-[8px] text-white">
+                  {projects.filter((project) => project.stage === stage).length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {projects
+                  .filter((project) => project.stage === stage)
+                  .map((project) => (
+                    <Link
+                      href={`/leads/${project.id}`}
+                      key={project.id}
+                      className="paper block rounded-lg border p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <p className="font-display text-lg font-semibold">
+                        {project.name}
+                      </p>
+                      <p className="mt-1 text-[9px] text-ink/45">
+                        {project.eventType} · {dateLabel(project.eventDate)}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {project.services.map((service) => (
+                          <span
+                            key={service.name}
+                            className="rounded bg-turquoise/15 px-2 py-1 text-[8px] font-bold text-[#285e59]"
+                          >
+                            {service.name}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex justify-between border-t pt-3 text-[9px]">
+                        <span className="text-ink/45">Next follow-up</span>
+                        <strong>{dateLabel(project.nextFollowUpAt)}</strong>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
         <section className="paper overflow-hidden rounded-xl border">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-left">
+            <table className="w-full min-w-[1480px] text-left">
               <thead className="bg-ink/[.035] font-mono text-[8px] tracking-[.11em] text-ink/44 uppercase">
                 <tr>
                   <th className="px-5 py-3">Lead</th>
-                  <th className="px-3 py-3">Stage</th>
-                  <th className="px-3 py-3">Services</th>
-                  <th className="px-3 py-3">Event</th>
-                  <th className="px-3 py-3">Value</th>
+                  <th className="px-3 py-3">HoneyBook status</th>
                   <th className="px-3 py-3">Last contact</th>
-                  <th className="px-3 py-3">Proposal</th>
+                  <th className="px-3 py-3">Proposal viewed</th>
+                  <th className="px-3 py-3">Dollars</th>
+                  <th className="px-3 py-3">Type / services</th>
+                  <th className="px-3 py-3">Event</th>
                   <th className="px-3 py-3">Next follow-up</th>
                   <th className="px-5 py-3">Attribution</th>
                 </tr>
@@ -273,7 +277,55 @@ export default async function PipelinePage({
                       </span>
                     </td>
                     <td className="px-3 py-4">
-                      <div className="flex max-w-[180px] flex-wrap gap-1">
+                      <p className="text-xs font-bold">
+                        {project.lastContactAt
+                          ? dateLabel(project.lastContactAt)
+                          : "Not supplied"}
+                      </p>
+                      <p className="mt-1 text-[9px] text-ink/40">
+                        {project.lastContactChannel ??
+                          "HoneyBook/Zapier limitation"}
+                      </p>
+                    </td>
+                    <td className="px-3 py-4">
+                      <span
+                        className={`text-xs font-bold ${project.firstViewedAt ? "text-coral" : project.proposalStatus.toLowerCase().includes("signed") ? "text-moss" : ""}`}
+                      >
+                        {project.firstViewedAt
+                          ? dateLabel(project.firstViewedAt)
+                          : project.proposalSentAt
+                            ? "Not viewed"
+                            : "Not available"}
+                      </span>
+                      <p className="mt-1 text-[9px] text-ink/40">
+                        Supported source required
+                      </p>
+                    </td>
+                    <td className="px-3 py-4">
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[8px]">
+                        <dt className="text-ink/40">Est.</dt>
+                        <dd className="font-bold">
+                          {formatCents(project.estimatedCents)}
+                        </dd>
+                        <dt className="text-ink/40">Booked</dt>
+                        <dd className="font-bold">
+                          {formatCents(project.bookedCents)}
+                        </dd>
+                        <dt className="text-ink/40">Collected</dt>
+                        <dd className="font-bold text-moss">
+                          {formatCents(project.collectedCents)}
+                        </dd>
+                        <dt className="text-ink/40">Due</dt>
+                        <dd className="font-bold text-coral">
+                          {formatCents(project.outstandingCents)}
+                        </dd>
+                      </dl>
+                    </td>
+                    <td className="px-3 py-4">
+                      <p className="mb-2 text-[9px] font-bold text-ink/55">
+                        {project.eventType}
+                      </p>
+                      <div className="flex max-w-[190px] flex-wrap gap-1">
                         {project.services.length ? (
                           project.services.map((service) => (
                             <span
@@ -285,7 +337,7 @@ export default async function PipelinePage({
                           ))
                         ) : (
                           <span className="text-[9px] text-coral">
-                            Needs mapping
+                            Not supplied
                           </span>
                         )}
                       </div>
@@ -297,39 +349,6 @@ export default async function PipelinePage({
                       <p className="mt-1 text-[9px] text-ink/40">
                         {project.venue}
                       </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <p className="font-mono text-xs font-bold">
-                        {formatCents(
-                          project.bookedCents || project.estimatedCents,
-                        )}
-                      </p>
-                      <p className="mt-1 text-[9px] text-moss">
-                        {project.bookedCents
-                          ? `${formatCents(project.collectedCents)} collected`
-                          : "Estimated"}
-                      </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <p
-                        className={`text-xs font-bold ${project.lastContactAt ? "" : "text-coral"}`}
-                      >
-                        {dateLabel(project.lastContactAt) === "—"
-                          ? "Never"
-                          : dateLabel(project.lastContactAt)}
-                      </p>
-                      <p className="mt-1 text-[9px] text-ink/40">
-                        {project.lastContactChannel ?? "Needs response"}
-                      </p>
-                    </td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={`text-xs font-bold ${project.firstViewedAt ? "text-coral" : project.proposalStatus.toLowerCase().includes("signed") ? "text-moss" : ""}`}
-                      >
-                        {project.firstViewedAt
-                          ? "Viewed"
-                          : project.proposalStatus}
-                      </span>
                     </td>
                     <td className="px-3 py-4">
                       <p className="text-xs font-bold">

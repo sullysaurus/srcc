@@ -3,9 +3,9 @@ import Link from "next/link";
 import { loadIntegrationState } from "@/lib/dashboard-data";
 const connectors = [
   {
-    name: "HoneyBook via Zapier",
-    status: "Ready for webhook",
-    detail: "Supported triggers only · shared-secret verification",
+    name: "HoneyBook",
+    status: "Choose sync method",
+    detail: "Automatic via Zapier or manual HoneyBook CSV upload",
     tone: "ready",
     fresh: "Not connected",
   },
@@ -24,11 +24,11 @@ const connectors = [
     fresh: "Never synced",
   },
   {
-    name: "Google Sheets",
-    status: "Needs authorization",
-    detail: "Leads tab · read-only manual import alternative to Zapier",
-    tone: "warn",
-    fresh: "Never imported",
+    name: "Historical Google Sheet archive",
+    status: "Retired source",
+    detail: "Preserved for audit only · excluded from the live pipeline",
+    tone: "neutral",
+    fresh: "Historical import retained",
   },
   {
     name: "Company email",
@@ -59,14 +59,31 @@ export default async function IntegrationsPage() {
               ? "gmail"
               : null;
     const connection = provider ? byProvider.get(provider) : null;
+    const manualHoneyBook =
+      item.name === "HoneyBook" ? byProvider.get("honeybook_manual") : null;
+    const honeyBookFresh = [
+      connection?.last_success_at,
+      manualHoneyBook?.last_success_at,
+    ]
+      .filter(Boolean)
+      .sort()
+      .at(-1);
     return {
       ...item,
-      status: connection?.status?.replaceAll("_", " ") ?? item.status,
-      fresh: connection?.last_success_at
-        ? new Date(connection.last_success_at).toLocaleString("en-US", {
-            timeZone: "America/Chicago",
-          })
-        : item.fresh,
+      status:
+        item.name === "HoneyBook" &&
+        manualHoneyBook?.status === "connected" &&
+        connection?.status !== "connected"
+          ? "manual upload ready"
+          : (connection?.status?.replaceAll("_", " ") ?? item.status),
+      fresh:
+        (honeyBookFresh ?? connection?.last_success_at)
+          ? new Date(
+              String(honeyBookFresh ?? connection?.last_success_at),
+            ).toLocaleString("en-US", {
+              timeZone: "America/Chicago",
+            })
+          : item.fresh,
       provider,
     };
   });

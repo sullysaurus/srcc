@@ -44,11 +44,15 @@ Copy `.env.example` locally and set values through Vercel project settings in pr
 
 ## 6. HoneyBook through Zapier
 
-Create Zaps only for supported triggers: new inquiry, client created, project stage changed, project booked, payment received, and meeting scheduled. POST to `/api/webhooks/honeybook` with `x-webhook-secret`, `x-organization-id`, a unique event ID, and UTC occurrence time. The endpoint verifies the secret, bounds replay age, validates the payload, deduplicates it, and retains only a redacted payload summary. Proposal views and complete message history are not inferred from HoneyBook.
+Open **Integrations → HoneyBook** and turn on automatic sync before testing. Create Zaps only for supported triggers: new inquiry, client created, project stage changed, project booked, payment received, and meeting scheduled. POST to `/api/webhooks/honeybook` with `x-webhook-secret`, `x-organization-id`, a unique event ID, and UTC occurrence time. Always map the stable HoneyBook project ID and exact HoneyBook stage. Map service, money, recent-activity, and project-link fields only when the selected trigger actually exposes them. The endpoint verifies the secret, enforces the enabled state and replay window, validates the payload, deduplicates it, and retains only a redacted payload summary. Proposal views and complete message history are not inferred from HoneyBook.
+
+### Manual HoneyBook alternative
+
+If Zapier is not enabled, export projects from HoneyBook and upload the CSV from the same HoneyBook integration panel. Include `Project ID` or `Project URL`; rows without either value are retained for review and do not update live projects. Repeated imports update by stable HoneyBook project ID. Use `/honeybook-import-template.csv` when the exported column names need to be rearranged.
 
 ## 7. Historical Google Sheet
 
-Export the `Leads` tab as CSV and use Historical Import. The source spreadsheet ID and tab are fixed in the form. Review every pending mapping before creating normalized projects. After validation and migration, treat the workbook as a historical source—not a second live system of record.
+The original `Leads` rows, raw values, and mapping decisions remain retained for audit. Sheet-derived projects are excluded from the live pipeline and command-center metrics. Do not use the workbook as a second live system of record.
 
 ## 8. Email
 
