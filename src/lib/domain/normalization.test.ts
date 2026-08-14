@@ -19,4 +19,11 @@ describe("historical normalization", () => {
     expect(normalizeService("party package deluxe").requiresReview).toBe(true);
     expect(normalizeStage("maybe booked").value).toBeNull();
   });
+
+  it("maps unambiguous historical booking outcomes", () => {
+    expect(normalizeStage("Booked!").value).toBe("Retainer Paid");
+    expect(normalizeStage("No response yet").value).toBe("Follow-up");
+    expect(normalizeStage("Priced too high").value).toBe("Lost");
+    expect(normalizeStage("Will call 10/21/25").value).toBe("Follow-up");
+  });
 });

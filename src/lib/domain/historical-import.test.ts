@@ -25,4 +25,17 @@ describe("historical import", () => {
     expect(row.normalizedValues.service).toBeNull();
     expect(row.normalizedValues.stage).toBeNull();
   });
+  it("recognizes the Southern Revelry workbook headers", () => {
+    const [row] = previewHistoricalCsv(
+      "Lead Name,Type,Booth Wanted,Booked?,Other Notes,Phone?,Text?\nElena Ruiz,Wedding,Photo Booth,Booked!,Called after inquiry,Yes,Yes no answer",
+    );
+    expect(row.normalizedValues).toMatchObject({
+      eventType: "Wedding",
+      service: "Photo Booth",
+      stage: "Retainer Paid",
+      notes: "Called after inquiry",
+      phoneFollowUp: "Yes",
+      textFollowUp: "Yes no answer",
+    });
+  });
 });

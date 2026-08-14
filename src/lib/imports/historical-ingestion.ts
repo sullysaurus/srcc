@@ -163,6 +163,18 @@ export async function ingestHistoricalRows(
     if (!sourceRecord)
       throw new Error(`Row ${row.rowNumber} source record is unavailable`);
 
+    const { error: sourceRefreshError } = await client
+      .from("source_records")
+      .update({
+        normalized_values: row.normalizedValues,
+        mapping_decisions: mappingDecisions,
+        validation_errors: [],
+      })
+      .eq("organization_id", input.organizationId)
+      .eq("id", sourceRecord.id);
+    if (sourceRefreshError)
+      throw new Error(`Row ${row.rowNumber} normalization could not be refreshed`);
+
     const normalized = row.normalizedValues;
     const { data: existingProject, error: existingError } = await client
       .from("projects")
@@ -232,6 +244,8 @@ export async function ingestHistoricalRows(
         source: "google_sheet",
         latest_source_record_id: sourceRecord.id,
         notes_present: Boolean(normalized.notes),
+        phone_follow_up: normalized.phoneFollowUp,
+        text_follow_up: normalized.textFollowUp,
       },
     });
 

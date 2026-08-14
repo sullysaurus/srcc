@@ -46,6 +46,17 @@ const stageAliases: Record<string, PipelineStage> = {
   completed: "Completed",
   lost: "Lost",
   declined: "Lost",
+  no: "Lost",
+  "no booking": "Lost",
+  "not going to book": "Lost",
+  "priced too high": "Lost",
+  "bride wants to go another direction": "Lost",
+  "no response": "Follow-up",
+  "no response yet": "Follow-up",
+  "waiting for response": "Follow-up",
+  "yes responded": "Contacted",
+  "sent proposal file": "Proposal Sent",
+  "looking at proposal file": "Proposal Sent",
   archived: "Archived",
 };
 
@@ -78,7 +89,10 @@ export function normalizeService(input: unknown): NormalizedValue<ServiceName> {
 
 export function normalizeStage(input: unknown): NormalizedValue<PipelineStage> {
   const original = String(input ?? "").trim();
-  const value = stageAliases[clean(input)];
+  const normalized = clean(input);
+  const value =
+    stageAliases[normalized] ??
+    (normalized.startsWith("will call ") ? "Follow-up" : undefined);
   return value
     ? { original, value, confidence: "exact", requiresReview: false }
     : { original, value: null, confidence: "ambiguous", requiresReview: true };
