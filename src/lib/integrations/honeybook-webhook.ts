@@ -6,11 +6,12 @@ export const supportedHoneyBookEvent = z.enum([
 ]);
 
 const zapierUtcTimestamp = z.preprocess((value) => {
-  if (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
-  ) {
-    return `${value.replace(" ", "T")}Z`;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = trimmed.match(
+      /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?$/,
+    );
+    if (match) return `${match[1]}T${match[2]}${match[3] ?? ""}Z`;
   }
   return value;
 }, z.string().datetime());

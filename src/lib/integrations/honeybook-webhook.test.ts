@@ -17,7 +17,7 @@ describe("HoneyBook webhook boundary", () => {
     const payload = honeyBookWebhookSchema.parse({
       event: "new_inquiry",
       event_id: "evt-2",
-      occurred_at: "2026-08-14 14:23:13",
+      occurred_at: " 2026-08-14 14:23:13 ",
     });
     expect(payload.occurred_at).toBe("2026-08-14T14:23:13Z");
   });
