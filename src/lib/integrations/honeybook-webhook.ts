@@ -5,16 +5,19 @@ export const supportedHoneyBookEvent = z.enum([
   "new_inquiry", "client_created", "project_stage_changed", "project_booked", "payment_received", "meeting_scheduled",
 ]);
 
-const zapierUtcTimestamp = z.preprocess((value) => {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    const match = trimmed.match(
+const zapierUtcTimestamp = z
+  .string()
+  .trim()
+  .transform((value) => {
+    const match = value.match(
       /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?$/,
     );
-    if (match) return `${match[1]}T${match[2]}${match[3] ?? ""}Z`;
-  }
-  return value;
-}, z.string().datetime());
+    return match ? `${match[1]}T${match[2]}${match[3] ?? ""}Z` : value;
+  })
+  .refine((value) => !Number.isNaN(Date.parse(value)), {
+    message: "Invalid webhook timestamp",
+  })
+  .transform((value) => new Date(value).toISOString());
 
 export const honeyBookWebhookSchema = z.object({
   event: supportedHoneyBookEvent,
