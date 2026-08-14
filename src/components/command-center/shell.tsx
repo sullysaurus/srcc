@@ -16,17 +16,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { loadShellState } from "@/lib/dashboard-data";
 
 const navigation = [
   { href: "/", label: "Command Center", icon: LayoutDashboard },
-  { href: "/pipeline", label: "Sales Pipeline", icon: UsersRound, count: 7 },
+  { href: "/pipeline", label: "Sales Pipeline", icon: UsersRound },
   { href: "/advertising", label: "Google Ads", icon: BarChart3 },
   { href: "/seo", label: "Search & SEO", icon: Search },
   { href: "/attribution", label: "Attribution", icon: Link2 },
   { href: "/communications", label: "Communications", icon: Mail },
   { href: "/automation", label: "Automation & Alerts", icon: ShieldCheck },
   { href: "/imports", label: "Historical Import", icon: Import },
-  { href: "/mapping-queue", label: "Mapping Queue", icon: Map, count: 12 },
+  { href: "/mapping-queue", label: "Mapping Queue", icon: Map },
   {
     href: "/integrations",
     label: "Integrations",
@@ -35,7 +36,25 @@ const navigation = [
   },
 ];
 
-export function CommandShell({ children }: { children: ReactNode }) {
+export async function CommandShell({ children }: { children: ReactNode }) {
+  const state = await loadShellState();
+  const liveNavigation = navigation.map((item) => ({
+    ...item,
+    count:
+      item.href === "/pipeline"
+        ? state.pipelineCount
+        : item.href === "/mapping-queue"
+          ? state.mappingCount
+          : undefined,
+    warning:
+      item.href === "/integrations" ? state.healthWarnings > 0 : item.warning,
+  }));
+  const today = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Chicago",
+  }).format(new Date());
   return (
     <div className="min-h-screen bg-canvas text-ink lg:grid lg:grid-cols-[248px_1fr]">
       <a
@@ -62,7 +81,7 @@ export function CommandShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <nav aria-label="Primary" className="flex-1 space-y-1 px-3 py-5">
-            {navigation.map((item, index) => (
+            {liveNavigation.map((item, index) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -89,7 +108,10 @@ export function CommandShell({ children }: { children: ReactNode }) {
               <HeartHandshake className="size-4 text-marigold" /> Today’s pulse
             </div>
             <p className="mt-2 text-xs leading-5 text-white/55">
-              2 urgent leads and 3 events need an operations check.
+              {state.pipelineCount} projects are in the live ledger.{" "}
+              {state.mappingCount
+                ? `${state.mappingCount} imported values need review.`
+                : "No imported values need review."}
             </p>
             <Link
               href="/pipeline"
@@ -118,7 +140,7 @@ export function CommandShell({ children }: { children: ReactNode }) {
             <div>
               <p className="text-xs font-bold lg:hidden">Southern Revelry</p>
               <p className="font-mono text-[9px] tracking-[.14em] text-ink/50 uppercase">
-                Thu, Aug 13 · Central time
+                {today} · Central time
               </p>
             </div>
           </div>
@@ -136,9 +158,9 @@ export function CommandShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
-        <div className="border-b border-coral/15 bg-[#fff0e7] px-4 py-2 text-center font-mono text-[9px] font-bold tracking-[.1em] text-[#874b3c] uppercase sm:px-7">
-          Foundation preview · fictional records only · connect Supabase to
-          enable live operations
+        <div className="border-b border-moss/20 bg-[#edf6e9] px-4 py-2 text-center font-mono text-[9px] font-bold tracking-[.1em] text-moss uppercase sm:px-7">
+          Live operations · Supabase secured · provider records appear after
+          connection or import
         </div>
         <main
           id="main-content"
@@ -161,11 +183,11 @@ export function CommandShell({ children }: { children: ReactNode }) {
           aria-label="Mobile"
         >
           {[
-            navigation[0],
-            navigation[1],
-            navigation[2],
-            navigation[3],
-            navigation.at(-1)!,
+            liveNavigation[0],
+            liveNavigation[1],
+            liveNavigation[2],
+            liveNavigation[3],
+            liveNavigation.at(-1)!,
           ].map((item) => (
             <Link
               key={item.href}

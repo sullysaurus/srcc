@@ -11,4 +11,5 @@ describe("Google OAuth request", () => {
     expect(parseGoogleOAuthState(`${result.state}x`,"state-secret")).toBeNull();
   });
   it("uses metadata-only Gmail access",()=>{const result=createGoogleOAuthRequest({organizationId:"20000000-0000-4000-8000-000000000001",provider:"gmail",clientId:"client",redirectUri:"https://app.example.com/api/google/oauth/callback",stateSecret:"state-secret"});expect(result.url.searchParams.get("scope")).toBe("https://www.googleapis.com/auth/gmail.metadata")});
+  it("uses read-only Google Sheets access",()=>{const result=createGoogleOAuthRequest({organizationId:"20000000-0000-4000-8000-000000000001",provider:"google_sheets",clientId:"client",redirectUri:"https://app.example.com/api/google/oauth/callback",stateSecret:"state-secret"});expect(result.url.searchParams.get("scope")).toBe("https://www.googleapis.com/auth/spreadsheets.readonly")});
 });

@@ -1,22 +1,14 @@
-import { env, hasSupabaseEnv } from "@/lib/env";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getOrganizationContext } from "@/lib/auth/organization-context";
+import { env } from "@/lib/env";
 
 async function organizationContext() {
-  if (!hasSupabaseEnv) return null;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: membership } = await supabase
-    .from("organization_memberships")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
-  return membership
-    ? { supabase, organizationId: membership.organization_id, userId: user.id }
+  const context = await getOrganizationContext();
+  return context
+    ? {
+        supabase: context.supabase,
+        organizationId: context.organizationId,
+        userId: context.user.id,
+      }
     : null;
 }
 
@@ -374,5 +366,396 @@ export async function loadAutomationReport() {
     },
     alerts: alerts ?? [],
     recommendations: recommendations ?? [],
+  };
+}
+
+export type LiveProject = {
+  id: string;
+  name: string;
+  contactName: string;
+  email: string | null;
+  phone: string | null;
+  stage: string;
+  stageKey: string | null;
+  source: string;
+  sourceOrigin: string;
+  owner: string;
+  eventType: string;
+  eventDate: string | null;
+  venue: string;
+  location: string;
+  services: Array<{
+    name: string;
+    origin: string;
+    originalValue: string | null;
+  }>;
+  estimatedCents: number;
+  proposalCents: number;
+  bookedCents: number;
+  collectedCents: number;
+  outstandingCents: number;
+  lastContactAt: string | null;
+  lastContactChannel: string | null;
+  nextFollowUpAt: string | null;
+  temperature: string | null;
+  proposalStatus: string;
+  proposalSentAt: string | null;
+  firstViewedAt: string | null;
+  latestViewedAt: string | null;
+  attribution: string;
+  honeybookUrl: string | null;
+  createdAt: string;
+};
+
+type ProjectRow = Record<string, unknown> & {
+  contacts?: Record<string, unknown> | null;
+  pipeline_stages?: Record<string, unknown> | null;
+  users?: Record<string, unknown> | null;
+  project_services?: Array<
+    Record<string, unknown> & { services?: Record<string, unknown> | null }
+  >;
+  proposals?: Array<
+    Record<string, unknown> & {
+      proposal_views?: Array<Record<string, unknown>>;
+    }
+  >;
+  lead_attribution?: Array<Record<string, unknown>>;
+};
+
+function one(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value))
+    return (value[0] as Record<string, unknown> | undefined) ?? null;
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringOrNull(value: unknown) {
+  return typeof value === "string" && value.length ? value : null;
+}
+
+function mapProject(row: ProjectRow): LiveProject {
+  const contact = one(row.contacts);
+  const stage = one(row.pipeline_stages);
+  const owner = one(row.users);
+  const proposals = (row.proposals ?? []).toSorted((left, right) =>
+    String(right.sent_at ?? "").localeCompare(String(left.sent_at ?? "")),
+  );
+  const proposal = proposals[0];
+  const views = (proposal?.proposal_views ?? [])
+    .map((view) => String(view.viewed_at))
+    .filter(Boolean)
+    .toSorted();
+  const attribution =
+    (row.lead_attribution ?? []).find(
+      (touch) => touch.touch_type === "last_non_direct",
+    ) ?? row.lead_attribution?.[0];
+  const contactName = [contact?.first_name, contact?.last_name]
+    .filter(Boolean)
+    .join(" ");
+  const sourceLabel =
+    stringOrNull(row.lead_source) ??
+    String(row.source_origin ?? "Unknown").replaceAll("_", " ");
+  const attributionLabel = attribution
+    ? [attribution.utm_source, attribution.utm_campaign]
+        .filter(Boolean)
+        .join(" · ") ||
+      (attribution.gclid ? "Google Ads click" : attribution.landing_page)
+    : sourceLabel;
+  const bookedCents = Number(row.booked_value_cents ?? 0);
+  const collectedCents = Number(row.collected_cents ?? 0);
+  return {
+    id: String(row.id),
+    name: stringOrNull(row.name) ?? (contactName || "Unnamed lead"),
+    contactName: contactName || stringOrNull(row.name) || "Unnamed lead",
+    email: stringOrNull(contact?.email_normalized),
+    phone: stringOrNull(contact?.phone_e164),
+    stage: stringOrNull(stage?.name) ?? "Needs mapping",
+    stageKey: stringOrNull(stage?.key),
+    source: sourceLabel,
+    sourceOrigin: String(row.source_origin ?? "manual"),
+    owner: stringOrNull(owner?.display_name) ?? "Unassigned",
+    eventType: stringOrNull(row.event_type) ?? "Event type not set",
+    eventDate: stringOrNull(row.event_at),
+    venue: stringOrNull(row.venue_name) ?? "Venue not set",
+    location:
+      [row.city, row.region].filter(Boolean).join(", ") || "Location not set",
+    services: (row.project_services ?? []).map((link) => ({
+      name: String(one(link.services)?.name ?? "Unknown"),
+      origin: String(link.source_origin ?? "manual"),
+      originalValue: stringOrNull(link.original_value),
+    })),
+    estimatedCents: Number(row.estimated_value_cents ?? 0),
+    proposalCents: Number(
+      row.proposal_value_cents ?? proposal?.amount_cents ?? 0,
+    ),
+    bookedCents,
+    collectedCents,
+    outstandingCents: Math.max(0, bookedCents - collectedCents),
+    lastContactAt: stringOrNull(row.last_communication_at),
+    lastContactChannel: stringOrNull(row.last_communication_channel),
+    nextFollowUpAt: stringOrNull(row.next_follow_up_at),
+    temperature: stringOrNull(row.lead_temperature),
+    proposalStatus: stringOrNull(proposal?.status) ?? "Not sent",
+    proposalSentAt: stringOrNull(proposal?.sent_at),
+    firstViewedAt: views[0] ?? null,
+    latestViewedAt: views.at(-1) ?? null,
+    attribution: String(attributionLabel || "Unattributed"),
+    honeybookUrl: stringOrNull(row.honeybook_url),
+    createdAt: String(row.created_at),
+  };
+}
+
+const projectSelect =
+  "id,name,event_type,event_at,venue_name,city,region,lead_source,source_origin,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
+
+export async function loadPipelineProjects() {
+  const context = await organizationContext();
+  if (!context) return [];
+  const { data, error } = await context.supabase
+    .from("projects")
+    .select(projectSelect)
+    .eq("organization_id", context.organizationId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("The live pipeline could not be loaded");
+  return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
+}
+
+export async function loadProjectDetail(id: string) {
+  const context = await organizationContext();
+  if (!context) return null;
+  const [
+    { data: project, error },
+    { data: activities },
+    { data: tasks },
+    { data: invoices },
+    { data: payments },
+  ] = await Promise.all([
+    context.supabase
+      .from("projects")
+      .select(projectSelect)
+      .eq("organization_id", context.organizationId)
+      .eq("id", id)
+      .maybeSingle(),
+    context.supabase
+      .from("activity_events")
+      .select("id,event_type,title,detail,source_origin,occurred_at")
+      .eq("organization_id", context.organizationId)
+      .eq("project_id", id)
+      .order("occurred_at", { ascending: false }),
+    context.supabase
+      .from("tasks")
+      .select("id,title,due_at,completed_at,priority,source_origin")
+      .eq("organization_id", context.organizationId)
+      .eq("project_id", id)
+      .order("due_at"),
+    context.supabase
+      .from("invoices")
+      .select("id,amount_cents,paid_cents,due_at,status,provider")
+      .eq("organization_id", context.organizationId)
+      .eq("project_id", id),
+    context.supabase
+      .from("payments")
+      .select("id,amount_cents,paid_at,provider")
+      .eq("organization_id", context.organizationId)
+      .eq("project_id", id)
+      .order("paid_at", { ascending: false }),
+  ]);
+  if (error || !project) return null;
+  return {
+    project: mapProject(project as unknown as ProjectRow),
+    activities: activities ?? [],
+    tasks: tasks ?? [],
+    invoices: invoices ?? [],
+    payments: payments ?? [],
+  };
+}
+
+export async function loadCommandCenter() {
+  const context = await organizationContext();
+  if (!context) return null;
+  const now = new Date();
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
+  const todayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  ).toISOString();
+  const todayEnd = new Date(Date.parse(todayStart) + 86_400_000).toISOString();
+  const [
+    projects,
+    { data: activities },
+    { count: pendingMappings },
+    { data: issues },
+    { data: adMetrics },
+    { data: searchMetrics },
+    { data: connections },
+  ] = await Promise.all([
+    loadPipelineProjects(),
+    context.supabase
+      .from("activity_events")
+      .select("id,title,detail,source_origin,occurred_at,project_id")
+      .eq("organization_id", context.organizationId)
+      .order("occurred_at", { ascending: false })
+      .limit(8),
+    context.supabase
+      .from("mapping_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId)
+      .eq("status", "pending"),
+    context.supabase
+      .from("integration_health_issues")
+      .select("provider,severity,title,last_detected_at")
+      .eq("organization_id", context.organizationId)
+      .is("resolved_at", null)
+      .order("last_detected_at", { ascending: false })
+      .limit(5),
+    context.supabase
+      .from("google_ads_daily_metrics")
+      .select(
+        "cost_cents,clicks,impressions,conversions,conversion_value_cents,date",
+      )
+      .eq("organization_id", context.organizationId)
+      .gte("date", monthStart.slice(0, 10)),
+    context.supabase
+      .from("search_console_daily_metrics")
+      .select("clicks,impressions,ctr,average_position,date")
+      .eq("organization_id", context.organizationId)
+      .gte("date", monthStart.slice(0, 10)),
+    context.supabase
+      .from("sync_connections")
+      .select("provider,status,last_success_at")
+      .eq("organization_id", context.organizationId),
+  ]);
+  const activeProjects = projects.filter(
+    (project) => !["lost", "archived"].includes(project.stageKey ?? ""),
+  );
+  const needsResponse = activeProjects.filter(
+    (project) => !project.lastContactAt,
+  );
+  const followUpsDue = activeProjects.filter(
+    (project) =>
+      project.nextFollowUpAt &&
+      project.nextFollowUpAt >= todayStart &&
+      project.nextFollowUpAt < todayEnd,
+  );
+  const overdue = activeProjects.filter(
+    (project) => project.nextFollowUpAt && project.nextFollowUpAt < todayStart,
+  );
+  const attention = [...needsResponse, ...overdue, ...followUpsDue]
+    .filter(
+      (project, index, list) =>
+        list.findIndex((item) => item.id === project.id) === index,
+    )
+    .slice(0, 8);
+  const bookedThisMonth = projects.filter(
+    (project) => project.bookedCents > 0 && project.createdAt >= monthStart,
+  );
+  const ads = (adMetrics ?? []).reduce(
+    (sum, row) => ({
+      spendCents: sum.spendCents + Number(row.cost_cents),
+      clicks: sum.clicks + Number(row.clicks),
+      conversions: sum.conversions + Number(row.conversions),
+    }),
+    { spendCents: 0, clicks: 0, conversions: 0 },
+  );
+  const search = (searchMetrics ?? []).reduce(
+    (sum, row) => ({
+      clicks: sum.clicks + Number(row.clicks),
+      impressions: sum.impressions + Number(row.impressions),
+      weightedPosition:
+        sum.weightedPosition +
+        Number(row.average_position) * Math.max(1, Number(row.impressions)),
+    }),
+    { clicks: 0, impressions: 0, weightedPosition: 0 },
+  );
+  return {
+    range: {
+      start: monthStart.slice(0, 10),
+      end: now.toISOString().slice(0, 10),
+    },
+    projects,
+    attention,
+    activities: activities ?? [],
+    issues: issues ?? [],
+    connections: connections ?? [],
+    pendingMappings: pendingMappings ?? 0,
+    metrics: {
+      newLeads: projects.filter((project) => project.createdAt >= monthStart)
+        .length,
+      needsResponse: needsResponse.length,
+      followUpsDue: followUpsDue.length,
+      overdue: overdue.length,
+      proposalsSent: projects.filter(
+        (project) =>
+          project.proposalSentAt && project.proposalSentAt >= monthStart,
+      ).length,
+      proposalsViewed: projects.filter(
+        (project) =>
+          project.firstViewedAt && project.firstViewedAt >= monthStart,
+      ).length,
+      bookings: bookedThisMonth.length,
+      bookedCents: bookedThisMonth.reduce(
+        (sum, project) => sum + project.bookedCents,
+        0,
+      ),
+      collectedCents: projects.reduce(
+        (sum, project) => sum + project.collectedCents,
+        0,
+      ),
+      outstandingCents: projects.reduce(
+        (sum, project) => sum + project.outstandingCents,
+        0,
+      ),
+      upcomingEvents: activeProjects.filter(
+        (project) => project.eventDate && project.eventDate >= todayStart,
+      ).length,
+      adSpendCents: ads.spendCents,
+      cplCents: projects.length
+        ? Math.round(
+            ads.spendCents /
+              Math.max(
+                1,
+                projects.filter((project) => project.createdAt >= monthStart)
+                  .length,
+              ),
+          )
+        : 0,
+      organicClicks: search.clicks,
+      organicImpressions: search.impressions,
+      averagePosition: search.impressions
+        ? search.weightedPosition / search.impressions
+        : 0,
+    },
+  };
+}
+
+export async function loadShellState() {
+  const context = await organizationContext();
+  if (!context) return { pipelineCount: 0, mappingCount: 0, healthWarnings: 0 };
+  const [
+    { count: pipelineCount },
+    { count: mappingCount },
+    { count: healthWarnings },
+  ] = await Promise.all([
+    context.supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId),
+    context.supabase
+      .from("mapping_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId)
+      .eq("status", "pending"),
+    context.supabase
+      .from("integration_health_issues")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId)
+      .is("resolved_at", null),
+  ]);
+  return {
+    pipelineCount: pipelineCount ?? 0,
+    mappingCount: mappingCount ?? 0,
+    healthWarnings: healthWarnings ?? 0,
   };
 }

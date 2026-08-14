@@ -18,30 +18,21 @@ const labels = {
 };
 const gateLabel = (gate: string) =>
   labels[gate as keyof typeof labels] ?? gate.replaceAll("_", " ");
-const fixture = {
-  runtimeEnabled: false,
-  isOwner: true,
-  gates: conversionGateKeys.map((gate) => ({
-    gate,
-    satisfied: false,
-    evidence: null,
-    approved_at: null,
-  })),
-  queue: { dry_run_passed: 0, invalid: 0, uploaded: 0 },
-  alerts: [
-    {
-      id: "preview",
-      severity: "warning",
-      title: "Production write path locked",
-      detail: "Complete and record all safety prerequisites before activation.",
-      source: "Conversion safety gates",
-      last_detected_at: "2026-08-13T12:00:00Z",
-    },
-  ],
-  recommendations: [],
-};
 export default async function AutomationPage() {
-  const data = (await loadAutomationReport()) ?? fixture;
+  const live = await loadAutomationReport();
+  if (!live) return null;
+  const data = {
+    ...live,
+    gates: conversionGateKeys.map(
+      (gate) =>
+        live.gates.find((row) => row.gate === gate) ?? {
+          gate,
+          satisfied: false,
+          evidence: null,
+          approved_at: null,
+        },
+    ),
+  };
   const prerequisitesPassed = data.gates
     .filter((row) => row.gate !== "production_uploads_approved")
     .every((row) => row.satisfied && row.approved_at);
