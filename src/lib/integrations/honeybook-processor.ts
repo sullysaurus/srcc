@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { normalizeService, normalizeStage } from "@/lib/domain/normalization";
+import { dollarsToCents } from "@/lib/domain/money";
 import { honeyBookWebhookSchema } from "./honeybook-webhook";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
@@ -13,6 +14,16 @@ const centsValue = (data: Record<string, unknown>, key: string) =>
   Number.isInteger(data[key]) && Number(data[key]) >= 0
     ? Number(data[key])
     : null;
+const dollarValue = (data: Record<string, unknown>, key: string) => {
+  const value = data[key];
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  try {
+    const cents = dollarsToCents(value);
+    return cents >= 0 ? cents : null;
+  } catch {
+    return null;
+  }
+};
 
 async function sourceRecord(organizationId: string, payload: Payload) {
   const admin = createAdminSupabaseClient();
@@ -357,7 +368,9 @@ export async function processHoneyBookEvent(
     );
   if (payload.event === "payment_received") {
     const paymentId = stringValue(payload.data, "payment_id");
-    const amount = centsValue(payload.data, "amount_cents");
+    const amount =
+      centsValue(payload.data, "amount_cents") ??
+      dollarValue(payload.data, "amount");
     if (projectId && paymentId && amount !== null) {
       const { error: paymentError } = await admin.from("payments").upsert(
         {
