@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AdsConversionAction, AdsConversionDaily, AdsDailyRow, GoogleAdsProvider } from "./contracts";
+import type { AdsConversionAction, AdsConversionDaily, AdsConversionSettings, AdsDailyRow, GoogleAdsProvider } from "./contracts";
 import { providerFetch } from "./http";
 
 const streamSchema = z.array(z.object({ results:z.array(z.record(z.string(),z.unknown())).default([]) }));
@@ -28,5 +28,10 @@ export class GoogleAdsRestProvider implements GoogleAdsProvider {
   async getConversionActionDaily({startDate,endDate}:{startDate:string;endDate:string}):Promise<AdsConversionDaily[]> {
     const rows=await this.query(`SELECT segments.date, segments.conversion_action, segments.conversion_action_name, metrics.all_conversions, metrics.all_conversions_value FROM customer WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`);
     return rows.map(row=>{const segments=(row.segments??{})as Record<string,unknown>;const metrics=(row.metrics??{})as Record<string,unknown>;const resource=String(segments.conversionAction??"");return{date:String(segments.date),actionId:resource.split("/").at(-1)??resource,actionName:String(segments.conversionActionName??"Unknown conversion"),conversions:numberValue(metrics.allConversions),conversionValueCents:Math.round(numberValue(metrics.allConversionsValue)*100)};});
+  }
+  async getConversionSettings():Promise<AdsConversionSettings> {
+    const rows=await this.query("SELECT customer.conversion_tracking_setting.enhanced_conversions_for_leads_enabled, customer.conversion_tracking_setting.accepted_customer_data_terms FROM customer LIMIT 1");
+    const customer=(rows[0]?.customer??{})as Record<string,unknown>;const settings=(customer.conversionTrackingSetting??{})as Record<string,unknown>;
+    return{enhancedConversionsForLeadsEnabled:Boolean(settings.enhancedConversionsForLeadsEnabled),acceptedCustomerDataTerms:Boolean(settings.acceptedCustomerDataTerms)};
   }
 }
