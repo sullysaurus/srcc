@@ -13,4 +13,12 @@ describe("HoneyBook webhook boundary", () => {
   it("rejects capabilities not exposed by the supported trigger list", () => {
     expect(honeyBookWebhookSchema.safeParse({ event:"proposal_viewed", event_id:"1", occurred_at:"2026-08-13T12:00:00Z" }).success).toBe(false);
   });
+  it("normalizes Zapier's UTC timestamp format", () => {
+    const payload = honeyBookWebhookSchema.parse({
+      event: "new_inquiry",
+      event_id: "evt-2",
+      occurred_at: "2026-08-14 14:23:13",
+    });
+    expect(payload.occurred_at).toBe("2026-08-14T14:23:13Z");
+  });
 });

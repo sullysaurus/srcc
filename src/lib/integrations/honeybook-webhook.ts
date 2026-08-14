@@ -5,10 +5,20 @@ export const supportedHoneyBookEvent = z.enum([
   "new_inquiry", "client_created", "project_stage_changed", "project_booked", "payment_received", "meeting_scheduled",
 ]);
 
+const zapierUtcTimestamp = z.preprocess((value) => {
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+  ) {
+    return `${value.replace(" ", "T")}Z`;
+  }
+  return value;
+}, z.string().datetime());
+
 export const honeyBookWebhookSchema = z.object({
   event: supportedHoneyBookEvent,
   event_id: z.string().min(1),
-  occurred_at: z.string().datetime(),
+  occurred_at: zapierUtcTimestamp,
   project_id: z.string().optional(),
   client_id: z.string().optional(),
   data: z.record(z.string(), z.unknown()).default({}),
