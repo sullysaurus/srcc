@@ -150,17 +150,24 @@ async function upsertProject(
     ["project_url", "honeybook_url"],
     ["project_name", "name"],
     ["event_type", "event_type"],
-    ["event_at", "event_at"],
     ["venue_name", "venue_name"],
     ["city", "city"],
     ["region", "region"],
     ["lead_source", "lead_source"],
-    ["recent_activity_at", "last_communication_at"],
     ["recent_activity_type", "last_communication_channel"],
   ] as const;
   for (const [source, column] of optionalFields) {
     const value = stringValue(payload.data, source);
     if (value) values[column] = value;
+  }
+  for (const [source, column] of [
+    ["event_at", "event_at"],
+    ["recent_activity_at", "last_communication_at"],
+  ] as const) {
+    const value = stringValue(payload.data, source);
+    if (!value) continue;
+    const timestamp = Date.parse(value);
+    if (!Number.isNaN(timestamp)) values[column] = new Date(timestamp).toISOString();
   }
   if (contactId) values.primary_contact_id = contactId;
   if (stageId) values.pipeline_stage_id = stageId;
