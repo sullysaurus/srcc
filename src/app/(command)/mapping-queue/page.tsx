@@ -45,12 +45,18 @@ export default async function MappingQueuePage({
         .order("created_at")
     : { data: [] };
   const rows = data ?? [];
-  const counts = new Map<string, number>();
-  for (const row of rows)
-    counts.set(
-      `${row.field_name}:${row.source_value}`,
-      (counts.get(`${row.field_name}:${row.source_value}`) ?? 0) + 1,
-    );
+  type QueueRow = (typeof rows)[number];
+  const groupedRows = Array.from(
+    rows
+      .reduce((groups, row) => {
+        const key = `${row.field_name}:${row.source_value}`;
+        const group = groups.get(key);
+        if (group) group.push(row);
+        else groups.set(key, [row]);
+        return groups;
+      }, new Map<string, QueueRow[]>())
+      .values(),
+  );
   return (
     <div className="pb-20 lg:pb-0">
       <div className="mb-7">
@@ -88,7 +94,7 @@ export default async function MappingQueuePage({
             </p>
           </div>
           <span className="rounded-full bg-coral px-2.5 py-1 font-mono text-[9px] font-bold text-white">
-            {counts.size} values
+            {groupedRows.length} values
           </span>
         </div>
         {rows.length ? (
@@ -104,28 +110,46 @@ export default async function MappingQueuePage({
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {rows.map((row) => {
-                  const source = Array.isArray(row.source_records)
-                    ? row.source_records[0]
-                    : row.source_records;
+                {groupedRows.map((group) => {
+                  const row = group[0];
                   const options =
                     row.field_name === "service"
                       ? serviceOptions
                       : statusOptions;
                   return (
-                    <tr key={row.id}>
+                    <tr key={`${row.field_name}:${row.source_value}`}>
                       <td className="px-5 py-4">
                         <p className="font-mono text-xs font-bold">
                           {row.source_value}
                         </p>
                         <details className="mt-2 text-[9px] text-ink/42">
                           <summary className="flex cursor-pointer items-center gap-1">
-                            <Eye className="size-3" /> Review original row{" "}
-                            {source?.source_row_number}
+                            <Eye className="size-3" /> Review {group.length}{" "}
+                            original row{group.length === 1 ? "" : "s"}
                           </summary>
-                          <pre className="mt-2 max-w-sm overflow-auto rounded bg-ink p-3 text-[8px] text-white">
-                            {JSON.stringify(source?.raw_values ?? {}, null, 2)}
-                          </pre>
+                          <div className="mt-2 max-h-72 max-w-sm space-y-2 overflow-auto rounded bg-ink p-3 text-[8px] text-white">
+                            {group.map((item) => {
+                              const itemSource = Array.isArray(
+                                item.source_records,
+                              )
+                                ? item.source_records[0]
+                                : item.source_records;
+                              return (
+                                <div key={item.id}>
+                                  <p className="mb-1 font-bold text-marigold">
+                                    Row {itemSource?.source_row_number}
+                                  </p>
+                                  <pre>
+                                    {JSON.stringify(
+                                      itemSource?.raw_values ?? {},
+                                      null,
+                                      2,
+                                    )}
+                                  </pre>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </details>
                       </td>
                       <td className="px-3 py-4 text-xs capitalize">
@@ -134,10 +158,7 @@ export default async function MappingQueuePage({
                       <td className="px-3 py-4">
                         <span className="inline-flex items-center gap-1 text-xs font-bold">
                           <Layers3 className="size-3.5 text-ink/35" />
-                          {counts.get(
-                            `${row.field_name}:${row.source_value}`,
-                          )}{" "}
-                          rows
+                          {group.length} row{group.length === 1 ? "" : "s"}
                         </span>
                       </td>
                       <td className="px-3 py-4">
