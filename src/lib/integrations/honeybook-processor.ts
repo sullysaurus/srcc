@@ -621,17 +621,21 @@ export async function processHoneyBookEvent(
       dollarValue(payload.data, "amount");
     if (projectId && paymentId && amount !== null) {
       let invoiceId: string | null = null;
+      let linkedInvoiceAmount: number | null = null;
       const invoiceProviderId = stringValue(payload.data, "invoice_id");
       const invoiceAmount =
         centsValue(payload.data, "invoice_amount_cents") ??
         dollarValue(payload.data, "invoice_amount");
       if (invoiceProviderId && invoiceAmount !== null) {
+        linkedInvoiceAmount = invoiceAmount;
         const invoiceDueRaw = stringValue(payload.data, "invoice_due_at");
         const invoiceDueAt =
           invoiceDueRaw && !Number.isNaN(Date.parse(invoiceDueRaw))
             ? new Date(invoiceDueRaw).toISOString()
             : null;
-        const { data: invoice, error: invoiceError } = await admin
+        const invoicePaidCents = centsValue(payload.data, "invoice_paid_cents");
+        const invoiceStatus = stringValue(payload.data, "invoice_status");
+        const { error: invoiceCreateError } = await admin
           .from("invoices")
           .upsert(
             {
@@ -640,33 +644,92 @@ export async function processHoneyBookEvent(
               provider: "honeybook_zapier",
               provider_id: invoiceProviderId,
               amount_cents: invoiceAmount,
-              paid_cents:
-                centsValue(payload.data, "invoice_paid_cents") ?? amount,
+              paid_cents: invoicePaidCents ?? 0,
               due_at: invoiceDueAt,
-              status: stringValue(payload.data, "invoice_status") ?? "paid",
+              status: invoiceStatus ?? "unpaid",
               raw_provider_fields: { source: "honeybook_zapier" },
             },
-            { onConflict: "organization_id,provider,provider_id" },
-          )
+            {
+              onConflict: "organization_id,provider,provider_id",
+              ignoreDuplicates: true,
+            },
+          );
+        if (invoiceCreateError)
+          throw new Error("Unable to store HoneyBook invoice");
+        const { data: invoice, error: invoiceLookupError } = await admin
+          .from("invoices")
           .select("id")
-          .single();
-        if (invoiceError) throw new Error("Unable to store HoneyBook invoice");
-        invoiceId = invoice?.id ?? null;
-      }
-      const { error: paymentError } = await admin.from("payments").upsert(
-        {
-          organization_id: organizationId,
+          .eq("organization_id", organizationId)
+          .eq("provider", "honeybook_zapier")
+          .eq("provider_id", invoiceProviderId)
+          .maybeSingle();
+        if (invoiceLookupError)
+          throw new Error("Unable to find HoneyBook invoice");
+        if (!invoice) throw new Error("Unable to find HoneyBook invoice");
+        const invoicePatch: Record<string, unknown> = {
           project_id: projectId,
-          invoice_id: invoiceId,
-          provider: "honeybook_zapier",
-          provider_id: paymentId,
-          amount_cents: amount,
-          paid_at: stringValue(payload.data, "paid_at") ?? payload.occurred_at,
+          amount_cents: invoiceAmount,
           raw_provider_fields: { source: "honeybook_zapier" },
-        },
-        { onConflict: "organization_id,provider,provider_id" },
-      );
+        };
+        if (invoiceDueRaw) invoicePatch.due_at = invoiceDueAt;
+        if (invoicePaidCents !== null)
+          invoicePatch.paid_cents = invoicePaidCents;
+        if (invoiceStatus) invoicePatch.status = invoiceStatus;
+        const { error: invoiceUpdateError } = await admin
+          .from("invoices")
+          .update(invoicePatch)
+          .eq("id", invoice.id);
+        if (invoiceUpdateError)
+          throw new Error("Unable to update HoneyBook invoice");
+        invoiceId = invoice.id;
+      }
+      const paymentRecord: Record<string, unknown> = {
+        organization_id: organizationId,
+        project_id: projectId,
+        provider: "honeybook_zapier",
+        provider_id: paymentId,
+        amount_cents: amount,
+        paid_at: stringValue(payload.data, "paid_at") ?? payload.occurred_at,
+        raw_provider_fields: { source: "honeybook_zapier" },
+      };
+      if (invoiceId) paymentRecord.invoice_id = invoiceId;
+      const { error: paymentError } = await admin
+        .from("payments")
+        .upsert(paymentRecord, {
+          onConflict: "organization_id,provider,provider_id",
+        });
       if (paymentError) throw new Error("Unable to store HoneyBook payment");
+      if (invoiceId && linkedInvoiceAmount !== null) {
+        const { data: invoicePayments, error: invoicePaymentsError } =
+          await admin
+            .from("payments")
+            .select("amount_cents")
+            .eq("organization_id", organizationId)
+            .eq("invoice_id", invoiceId);
+        if (invoicePaymentsError)
+          throw new Error("Unable to total HoneyBook invoice payments");
+        const cumulativePaidCents = (invoicePayments ?? []).reduce(
+          (sum, payment) => sum + Number(payment.amount_cents),
+          0,
+        );
+        const reportedPaidCents = centsValue(
+          payload.data,
+          "invoice_paid_cents",
+        );
+        const paidCents = reportedPaidCents ?? cumulativePaidCents;
+        const reportedStatus = stringValue(payload.data, "invoice_status");
+        const { error: invoiceTotalError } = await admin
+          .from("invoices")
+          .update({
+            paid_cents: paidCents,
+            status:
+              reportedStatus ??
+              (paidCents >= linkedInvoiceAmount ? "paid" : "partial"),
+          })
+          .eq("id", invoiceId);
+        if (invoiceTotalError)
+          throw new Error("Unable to update HoneyBook invoice balance");
+      }
       const { data: payments, error: paymentsError } = await admin
         .from("payments")
         .select("amount_cents")

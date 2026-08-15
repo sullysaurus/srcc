@@ -48,6 +48,18 @@ export async function syncGmailMetadata(organizationId: string) {
       ? Math.floor(Number(configuration.lastInternalDateMs) / 1000) - 300
       : Math.floor(Date.now() / 1000) - 30 * 86_400;
     const messages = await provider.listMetadata(after);
+    const hasHoneyBookNotifications = messages.some((message) =>
+      Boolean(parseHoneyBookSmsNotification(message.from, message.subject)),
+    );
+    const { data: honeyBookProjects } = hasHoneyBookNotifications
+      ? await admin
+          .from("projects")
+          .select("id,name,contacts(first_name,last_name)")
+          .eq("organization_id", organizationId)
+          .eq("source_origin", "honeybook")
+      : { data: [] };
+    const honeyBookCandidates = (honeyBookProjects ??
+      []) as unknown as HoneyBookProjectCandidate[];
     let matched = 0;
     let unmatched = 0;
     let maxInternalDate = Number(configuration.lastInternalDateMs ?? 0);
@@ -73,15 +85,7 @@ export async function syncGmailMetadata(organizationId: string) {
       let projectId: string | null = null;
       let matchedBy = "unmatched";
       if (notification) {
-        const { data: projects } = await admin
-          .from("projects")
-          .select("id,name,contacts(first_name,last_name)")
-          .eq("organization_id", organizationId)
-          .eq("source_origin", "honeybook");
-        projectId = matchHoneyBookSmsProject(
-          (projects ?? []) as unknown as HoneyBookProjectCandidate[],
-          notification,
-        );
+        projectId = matchHoneyBookSmsProject(honeyBookCandidates, notification);
         if (projectId) matchedBy = "provider_id";
       } else {
         const { data: contacts } = externalAddresses.length
@@ -149,6 +153,7 @@ export async function syncGmailMetadata(organizationId: string) {
             .eq("organization_id", organizationId)
             .eq("project_id", projectId)
             .eq("provider", "honeybook_automation")
+            .lte("created_at", message.occurredAt)
             .is("completed_at", null);
           const { data: next } = await admin
             .from("tasks")

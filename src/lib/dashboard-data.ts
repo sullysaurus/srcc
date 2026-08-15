@@ -486,26 +486,34 @@ export async function loadSearchSummary(range: ReportingWindow) {
 export async function loadAttributionReport() {
   const context = await organizationContext();
   if (!context) return null;
-  const [{ data: touches }, { data: searchRows }] = await Promise.all([
-    context.supabase
-      .from("lead_attribution")
-      .select(
-        "project_id,touch_type,utm_source,utm_medium,landing_page,gclid,gbraid,wbraid,occurred_at,projects(name,booked_value_cents,pipeline_stages(key))",
-      )
-      .eq("organization_id", context.organizationId)
-      .eq("touch_type", "first_touch")
-      .gte("occurred_at", new Date(Date.now() - 30 * 86_400_000).toISOString()),
-    context.supabase
-      .from("search_console_daily_metrics")
-      .select("page,clicks,impressions")
-      .eq("organization_id", context.organizationId)
-      .eq("search_appearance", "")
-      .gte(
-        "date",
-        new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10),
-      ),
-  ]);
-  if (!touches?.length) return null;
+  const [{ data: touches }, { data: searchRows }, { count: sessions }] =
+    await Promise.all([
+      context.supabase
+        .from("lead_attribution")
+        .select(
+          "project_id,touch_type,utm_source,utm_medium,landing_page,gclid,gbraid,wbraid,occurred_at,projects(name,booked_value_cents,pipeline_stages(key))",
+        )
+        .eq("organization_id", context.organizationId)
+        .eq("touch_type", "first_touch")
+        .gte(
+          "occurred_at",
+          new Date(Date.now() - 30 * 86_400_000).toISOString(),
+        ),
+      context.supabase
+        .from("search_console_daily_metrics")
+        .select("page,clicks,impressions")
+        .eq("organization_id", context.organizationId)
+        .eq("search_appearance", "")
+        .gte(
+          "date",
+          new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10),
+        ),
+      context.supabase
+        .from("attribution_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", context.organizationId),
+    ]);
+  const reportTouches = touches ?? [];
   const pages = new Map<
     string,
     {
@@ -517,7 +525,7 @@ export async function loadAttributionReport() {
       organicImpressions: number;
     }
   >();
-  for (const touch of touches) {
+  for (const touch of reportTouches) {
     const project = touch.projects as unknown as {
       name: string;
       booked_value_cents: number;
@@ -549,7 +557,7 @@ export async function loadAttributionReport() {
   const all = [...pages.values()].sort(
     (a, b) => b.bookedRevenueCents - a.bookedRevenueCents,
   );
-  const organic = (touches ?? []).filter((touch) => {
+  const organic = reportTouches.filter((touch) => {
     const source = touch.utm_source?.toLowerCase();
     const medium = touch.utm_medium?.toLowerCase();
     return (
@@ -566,7 +574,8 @@ export async function loadAttributionReport() {
       },
   );
   return {
-    leads: touches.length,
+    captureActive: (sessions ?? 0) > 0,
+    leads: reportTouches.length,
     organicLeads: organic.length,
     organicQualified: organicProjects.filter(
       (project) =>

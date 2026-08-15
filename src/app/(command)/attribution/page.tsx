@@ -9,6 +9,7 @@ import { loadAttributionReport } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/domain/money";
 export default async function AttributionPage() {
   const data = (await loadAttributionReport()) ?? {
+    captureActive: false,
     leads: 0,
     organicLeads: 0,
     organicQualified: 0,
@@ -53,7 +54,7 @@ export default async function AttributionPage() {
           never assigned to a person.
         </p>
       </div>
-      {data.leads === 0 ? (
+      {!data.captureActive ? (
         <section className="mb-5 rounded-xl border border-marigold/45 bg-[#fff7dd] p-5">
           <p className="text-xs font-bold">Website capture is not active yet</p>
           <p className="mt-2 max-w-3xl text-[10px] leading-5 text-ink/55">
