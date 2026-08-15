@@ -1,8 +1,25 @@
-import { CalendarDays, Columns3, List, Search } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarRange,
+  Columns3,
+  List,
+  Search,
+} from "lucide-react";
 import Link from "next/link";
 
-import { loadPipelineProjects, type LiveProject } from "@/lib/dashboard-data";
+import { loadPipelineProjects } from "@/lib/dashboard-data";
+import {
+  countPipelineViews,
+  filterPipelineProjects,
+} from "@/lib/domain/pipeline-filtering";
 import { formatCents } from "@/lib/domain/money";
+import {
+  pipelineDateKey,
+  pipelineYearEnd,
+  shiftPipelineDate,
+  validPipelineDateParam,
+} from "@/lib/domain/pipeline-date-range";
 
 const savedViews = [
   ["all", "All leads"],
@@ -28,6 +45,29 @@ const honeyBookStageOrder = [
   "Archived",
 ];
 
+type PipelineSearchParams = {
+  view?: string;
+  q?: string;
+  layout?: string;
+  from?: string;
+  to?: string;
+};
+
+function pipelineHref(
+  params: PipelineSearchParams,
+  changes: Partial<PipelineSearchParams>,
+) {
+  const next = { ...params, ...changes };
+  const query = new URLSearchParams();
+  if (next.view && next.view !== "all") query.set("view", next.view);
+  if (next.q) query.set("q", next.q);
+  if (next.layout === "kanban") query.set("layout", "kanban");
+  if (next.from) query.set("from", next.from);
+  if (next.to) query.set("to", next.to);
+  const suffix = query.toString();
+  return suffix ? `/pipeline?${suffix}` : "/pipeline";
+}
+
 function dateLabel(value: string | null) {
   return value
     ? new Date(value).toLocaleDateString("en-US", {
@@ -39,65 +79,45 @@ function dateLabel(value: string | null) {
     : "—";
 }
 
-function filterProjects(projects: LiveProject[], view: string, query: string) {
-  const now = Date.now();
-  return projects.filter((project) => {
-    const searchable = [
-      project.name,
-      project.contactName,
-      project.venue,
-      project.location,
-      project.services.map((service) => service.name).join(" "),
-    ]
-      .join(" ")
-      .toLowerCase();
-    if (query && !searchable.includes(query.toLowerCase())) return false;
-    if (view === "new") return project.stageKey === "inquiry";
-    if (view === "response")
-      return project.stageKey === "inquiry" && !project.lastContactAt;
-    if (view === "followup")
-      return Boolean(
-        project.nextFollowUpAt &&
-        Date.parse(project.nextFollowUpAt) <= now &&
-        !["lost", "archived", "completed"].includes(project.stageKey ?? ""),
-      );
-    if (view === "not-viewed")
-      return project.proposalSentAt !== null && project.firstViewedAt === null;
-    if (view === "viewed")
-      return project.firstViewedAt !== null && project.bookedCents === 0;
-    if (view === "hot") return project.temperature === "hot";
-    if (view === "booked")
-      return (
-        project.bookedCents > 0 ||
-        ["retainer_paid", "planning"].includes(project.stageKey ?? "")
-      );
-    if (view === "lost") return project.stageKey === "lost";
-    if (view === "attention")
-      return (
-        !project.lastContactAt ||
-        Boolean(
-          project.nextFollowUpAt && Date.parse(project.nextFollowUpAt) <= now,
-        )
-      );
-    return true;
-  });
-}
-
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; q?: string; layout?: string }>;
+  searchParams: Promise<PipelineSearchParams>;
 }) {
   const params = await searchParams;
   const allProjects = await loadPipelineProjects();
   const activeView = params.view ?? "all";
-  const projects = filterProjects(allProjects, activeView, params.q ?? "");
+  const fromDate = validPipelineDateParam(params.from);
+  const toDate = validPipelineDateParam(params.to);
+  const activeParams = {
+    ...params,
+    view: activeView,
+    from: fromDate,
+    to: toDate,
+  };
+  const projects = filterPipelineProjects(
+    allProjects,
+    activeView,
+    params.q ?? "",
+    fromDate,
+    toDate,
+  );
   const kanban = params.layout === "kanban";
-  const counts = new Map(
-    savedViews.map(([key]) => [
-      key,
-      filterProjects(allProjects, key, "").length,
-    ]),
+  const today = pipelineDateKey(new Date().toISOString()) ?? "";
+  const thisYear = today.slice(0, 4);
+  const hasDateRange = Boolean(fromDate || toDate);
+  const counts = countPipelineViews(
+    allProjects,
+    savedViews.map(([key]) => key),
+    params.q ?? "",
+    fromDate,
+    toDate,
+  );
+  const hasAnyFilter =
+    activeView !== "all" || Boolean(params.q) || hasDateRange;
+  const resetFiltersHref = pipelineHref(
+    { layout: kanban ? "kanban" : undefined },
+    {},
   );
   return (
     <div className="pb-20 lg:pb-0">
@@ -116,13 +136,13 @@ export default async function PipelinePage({
         </div>
         <div className="flex gap-2">
           <Link
-            href={`/pipeline?view=${activeView}&layout=kanban`}
+            href={pipelineHref(activeParams, { layout: "kanban" })}
             className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${kanban ? "bg-ink text-white" : "bg-cream"}`}
           >
             <Columns3 className="size-4" /> Kanban
           </Link>
           <Link
-            href={`/pipeline?view=${activeView}`}
+            href={pipelineHref(activeParams, { layout: undefined })}
             className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${!kanban ? "bg-ink text-white" : "bg-cream"}`}
           >
             <List className="size-4" /> Table
@@ -135,8 +155,9 @@ export default async function PipelinePage({
       >
         {savedViews.map(([key, label]) => (
           <Link
-            href={`/pipeline?view=${key}${kanban ? "&layout=kanban" : ""}`}
+            href={pipelineHref(activeParams, { view: key })}
             key={key}
+            aria-current={activeView === key ? "page" : undefined}
             className={`whitespace-nowrap rounded-full border px-3 py-2 text-[10px] font-bold ${activeView === key ? "border-ink bg-ink text-white" : "bg-cream text-ink/55"}`}
           >
             {label}
@@ -148,31 +169,100 @@ export default async function PipelinePage({
           </Link>
         ))}
       </nav>
-      <form className="paper mb-4 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center">
+      <form
+        action="/pipeline"
+        method="get"
+        className="paper mb-3 grid gap-3 rounded-xl border p-3 lg:grid-cols-[minmax(240px,1fr)_auto_auto] lg:items-end"
+      >
         <input type="hidden" name="view" value={activeView} />
         {kanban ? <input type="hidden" name="layout" value="kanban" /> : null}
-        <label className="flex h-10 flex-1 items-center gap-2 rounded-lg border bg-white px-3">
-          <Search className="size-4 text-ink/35" />
-          <input
-            name="q"
-            defaultValue={params.q}
-            aria-label="Search leads"
-            placeholder="Search name, venue, service…"
-            className="w-full bg-transparent text-xs outline-none"
-          />
-        </label>
-        <button className="h-10 rounded-lg bg-ink px-4 text-xs font-bold text-white">
-          Search
-        </button>
-        {params.q ? (
-          <Link
-            href={`/pipeline?view=${activeView}`}
-            className="px-3 text-xs font-bold text-ink/45"
+        <div>
+          <label
+            htmlFor="pipeline-search"
+            className="mb-1.5 block font-mono text-[8px] font-bold tracking-[.12em] text-ink/40 uppercase"
           >
-            Clear
-          </Link>
-        ) : null}
+            Find a lead
+          </label>
+          <label className="flex h-11 items-center gap-2 rounded-lg border bg-white px-3 focus-within:border-ink/50">
+            <Search className="size-4 text-ink/35" />
+            <input
+              id="pipeline-search"
+              name="q"
+              defaultValue={params.q}
+              aria-label="Search leads"
+              placeholder="Search name, venue, service…"
+              className="w-full bg-transparent text-xs outline-none"
+            />
+          </label>
+        </div>
+        <fieldset>
+          <legend className="mb-1.5 font-mono text-[8px] font-bold tracking-[.12em] text-ink/40 uppercase">
+            Event date
+          </legend>
+          <div className="flex items-center rounded-lg border bg-white p-1">
+            <label className="min-w-0">
+              <span className="sr-only">Event date from</span>
+              <input
+                type="date"
+                name="from"
+                defaultValue={fromDate}
+                max={toDate || undefined}
+                className="h-9 min-w-0 rounded-md bg-transparent px-2 text-[11px] font-bold outline-none focus:bg-cream"
+              />
+            </label>
+            <ArrowRight className="size-3.5 shrink-0 text-ink/25" />
+            <label className="min-w-0">
+              <span className="sr-only">Event date to</span>
+              <input
+                type="date"
+                name="to"
+                defaultValue={toDate}
+                min={fromDate || undefined}
+                className="h-9 min-w-0 rounded-md bg-transparent px-2 text-[11px] font-bold outline-none focus:bg-cream"
+              />
+            </label>
+          </div>
+        </fieldset>
+        <button className="h-11 rounded-lg bg-ink px-5 text-xs font-bold text-white transition hover:bg-coral">
+          Apply filters
+        </button>
       </form>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <CalendarRange className="size-4 shrink-0 text-coral" />
+          {[
+            ["All dates", "", ""],
+            ["Next 30 days", today, shiftPipelineDate(today, 30)],
+            ["Next 90 days", today, shiftPipelineDate(today, 90)],
+            [`Rest of ${thisYear}`, today, pipelineYearEnd(today)],
+          ].map(([label, from, to]) => {
+            const selected = fromDate === from && toDate === to;
+            return (
+              <Link
+                key={label}
+                href={pipelineHref(activeParams, { from, to })}
+                aria-current={selected ? "page" : undefined}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[9px] font-bold transition ${selected ? "border-coral bg-coral text-white" : "bg-cream text-ink/50 hover:border-ink/30"}`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+        <p className="text-[10px] font-bold text-ink/45">
+          Showing <span className="text-ink">{projects.length}</span> of{" "}
+          {allProjects.length} leads
+          {hasDateRange ? " in this event window" : " across all event dates"}
+          {hasAnyFilter ? (
+            <Link
+              href={resetFiltersHref}
+              className="ml-2 text-coral underline decoration-coral/30 underline-offset-2"
+            >
+              Reset all filters
+            </Link>
+          ) : null}
+        </p>
+      </div>
       {!projects.length ? (
         <section className="paper grid min-h-72 place-items-center rounded-xl border p-8 text-center">
           <div>
@@ -181,14 +271,26 @@ export default async function PipelinePage({
               No leads in this view
             </h2>
             <p className="mt-2 text-xs text-ink/45">
-              Turn on the Zapier connection or upload a HoneyBook CSV to begin.
+              {hasAnyFilter
+                ? "No projects match this combination. Clear filters or try a broader search."
+                : "Turn on the Zapier connection or upload a HoneyBook CSV to begin."}
             </p>
-            <Link
-              href="/integrations/honeybook"
-              className="mt-4 inline-block text-xs font-bold text-coral"
-            >
-              Open HoneyBook setup
-            </Link>
+            {hasAnyFilter ? (
+              <Link
+                href={resetFiltersHref}
+                className="mt-4 inline-block text-xs font-bold text-coral"
+              >
+                Reset all filters
+              </Link>
+            ) : null}
+            {!hasAnyFilter ? (
+              <Link
+                href="/integrations/honeybook"
+                className="mt-4 inline-block text-xs font-bold text-coral"
+              >
+                Open HoneyBook setup
+              </Link>
+            ) : null}
           </div>
         </section>
       ) : kanban ? (

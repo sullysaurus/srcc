@@ -35,35 +35,89 @@ export async function loadIntegrationState() {
   return { connections: connections ?? [], issues: issues ?? [] };
 }
 
-export async function loadAdsSummary() {
+type ReportingWindow = {
+  from: string;
+  to: string;
+  compareFrom: string;
+  compareTo: string;
+};
+
+type AdMetricRow = {
+  entity_provider_id: string;
+  impressions: number | string;
+  clicks: number | string;
+  cost_cents: number | string;
+  conversions: number | string;
+  conversion_value_cents: number | string;
+  impression_share: number | string | null;
+  date: string;
+};
+
+function summarizeAdRows(rows: AdMetricRow[]) {
+  return rows.reduce(
+    (sum, row) => ({
+      impressions: sum.impressions + Number(row.impressions),
+      clicks: sum.clicks + Number(row.clicks),
+      spendCents: sum.spendCents + Number(row.cost_cents),
+      reportedConversions: sum.reportedConversions + Number(row.conversions),
+      reportedValueCents:
+        sum.reportedValueCents + Number(row.conversion_value_cents),
+    }),
+    {
+      impressions: 0,
+      clicks: 0,
+      spendCents: 0,
+      reportedConversions: 0,
+      reportedValueCents: 0,
+    },
+  );
+}
+
+export async function loadAdsSummary(range: ReportingWindow) {
   const context = await organizationContext();
   if (!context) return null;
-  const start = new Date(Date.now() - 30 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  const [{ data: metrics }, { data: campaigns }, { data: projects }] =
-    await Promise.all([
-      context.supabase
-        .from("google_ads_daily_metrics")
-        .select(
-          "entity_provider_id,impressions,clicks,cost_cents,conversions,conversion_value_cents,date",
-        )
-        .eq("organization_id", context.organizationId)
-        .eq("entity_type", "campaign")
-        .gte("date", start),
-      context.supabase
-        .from("google_ads_campaigns")
-        .select("provider_id,name,budget_cents,status")
-        .eq("organization_id", context.organizationId),
-      context.supabase
-        .from("projects")
-        .select(
-          "id,booked_value_cents,collected_cents,pipeline_stage_id,lead_source",
-        )
-        .eq("organization_id", context.organizationId)
-        .ilike("lead_source", "%google%"),
-    ]);
-  if (!metrics?.length) return null;
+  const [
+    { data: metrics },
+    { data: campaigns },
+    { data: projects },
+    { data: issues },
+  ] = await Promise.all([
+    context.supabase
+      .from("google_ads_daily_metrics")
+      .select(
+        "entity_provider_id,impressions,clicks,cost_cents,conversions,conversion_value_cents,impression_share,date",
+      )
+      .eq("organization_id", context.organizationId)
+      .eq("entity_type", "campaign")
+      .gte("date", range.compareFrom)
+      .lte("date", range.to),
+    context.supabase
+      .from("google_ads_campaigns")
+      .select("provider_id,name,budget_cents,status")
+      .eq("organization_id", context.organizationId),
+    context.supabase
+      .from("projects")
+      .select(
+        "id,created_at,booked_value_cents,collected_cents,lead_source,lead_attribution(gclid,gbraid,wbraid,utm_source,utm_medium,occurred_at)",
+      )
+      .eq("organization_id", context.organizationId)
+      .gte("created_at", `${range.compareFrom}T00:00:00Z`)
+      .lte("created_at", `${range.to}T23:59:59.999Z`),
+    context.supabase
+      .from("integration_health_issues")
+      .select("issue_key,severity,title,detail")
+      .eq("organization_id", context.organizationId)
+      .eq("provider", "google_ads")
+      .is("resolved_at", null)
+      .limit(500),
+  ]);
+  const allMetrics = (metrics ?? []) as unknown as AdMetricRow[];
+  const currentMetrics = allMetrics.filter(
+    (row) => row.date >= range.from && row.date <= range.to,
+  );
+  const previousMetrics = allMetrics.filter(
+    (row) => row.date >= range.compareFrom && row.date <= range.compareTo,
+  );
   const campaignMap = new Map(
     (campaigns ?? []).map((campaign) => [campaign.provider_id, campaign]),
   );
@@ -72,63 +126,244 @@ export async function loadAdsSummary() {
     {
       name: string;
       spendCents: number;
+      impressions: number;
       clicks: number;
       reportedConversions: number;
       reportedValueCents: number;
+      weightedImpressionShare: number;
+      status: string;
     }
   >();
-  for (const metric of metrics) {
+  for (const metric of currentMetrics) {
     const id = metric.entity_provider_id;
     const current = grouped.get(id) ?? {
       name: campaignMap.get(id)?.name ?? id,
       spendCents: 0,
+      impressions: 0,
       clicks: 0,
       reportedConversions: 0,
       reportedValueCents: 0,
+      weightedImpressionShare: 0,
+      status: campaignMap.get(id)?.status ?? "UNKNOWN",
     };
     current.spendCents += Number(metric.cost_cents);
+    current.impressions += Number(metric.impressions);
     current.clicks += Number(metric.clicks);
     current.reportedConversions += Number(metric.conversions);
     current.reportedValueCents += Number(metric.conversion_value_cents);
+    current.weightedImpressionShare +=
+      Number(metric.impression_share ?? 0) * Number(metric.impressions);
     grouped.set(id, current);
   }
+  const totals = summarizeAdRows(currentMetrics);
+  const previous = summarizeAdRows(previousMetrics);
+  const projectRows = (projects ?? []) as Array<{
+    created_at: string;
+    booked_value_cents: number | string;
+    collected_cents: number | string;
+    lead_source: string | null;
+    lead_attribution?: Array<{
+      gclid?: string | null;
+      gbraid?: string | null;
+      wbraid?: string | null;
+      utm_source?: string | null;
+      utm_medium?: string | null;
+    }>;
+  }>;
+  const googleProjects = projectRows.filter((project) => {
+    const touches = project.lead_attribution ?? [];
+    return (
+      String(project.lead_source ?? "")
+        .toLowerCase()
+        .includes("google") ||
+      touches.some(
+        (touch) =>
+          Boolean(touch.gclid || touch.gbraid || touch.wbraid) ||
+          String(touch.utm_source ?? "")
+            .toLowerCase()
+            .includes("google"),
+      )
+    );
+  });
+  const projectPeriod = (from: string, to: string) => {
+    const rows = googleProjects.filter((project) => {
+      const date = project.created_at.slice(0, 10);
+      return date >= from && date <= to;
+    });
+    const matched = rows.filter((project) =>
+      (project.lead_attribution ?? []).some((touch) =>
+        Boolean(touch.gclid || touch.gbraid || touch.wbraid),
+      ),
+    );
+    return {
+      selfReportedGoogleLeads: rows.length,
+      matchedLeads: matched.length,
+      unmatchedLeads: rows.length - matched.length,
+      bookings: matched.filter(
+        (project) => Number(project.booked_value_cents) > 0,
+      ).length,
+      bookedRevenueCents: matched.reduce(
+        (sum, project) => sum + Number(project.booked_value_cents),
+        0,
+      ),
+      collectedRevenueCents: matched.reduce(
+        (sum, project) => sum + Number(project.collected_cents),
+        0,
+      ),
+    };
+  };
+  const crm = projectPeriod(range.from, range.to);
+  const previousCrm = projectPeriod(range.compareFrom, range.compareTo);
+  const issueGroups = new Map<
+    string,
+    { severity: string; title: string; detail: string | null; count: number }
+  >();
+  for (const issue of issues ?? []) {
+    const current = issueGroups.get(issue.issue_key) ?? {
+      severity: issue.severity,
+      title: issue.title,
+      detail: issue.detail,
+      count: 0,
+    };
+    current.count += 1;
+    issueGroups.set(issue.issue_key, current);
+  }
+  const daily = new Map<
+    string,
+    { date: string; spendCents: number; clicks: number; conversions: number }
+  >();
+  for (const row of currentMetrics) {
+    const day = daily.get(row.date) ?? {
+      date: row.date,
+      spendCents: 0,
+      clicks: 0,
+      conversions: 0,
+    };
+    day.spendCents += Number(row.cost_cents);
+    day.clicks += Number(row.clicks);
+    day.conversions += Number(row.conversions);
+    daily.set(row.date, day);
+  }
   return {
-    start,
-    end: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
-    campaigns: [...grouped.values()],
-    spendCents: [...grouped.values()].reduce(
-      (sum, row) => sum + row.spendCents,
-      0,
-    ),
-    reportedConversions: [...grouped.values()].reduce(
-      (sum, row) => sum + row.reportedConversions,
-      0,
-    ),
-    reportedValueCents: [...grouped.values()].reduce(
-      (sum, row) => sum + row.reportedValueCents,
-      0,
-    ),
-    attributedLeads: (projects ?? []).length,
-    bookedRevenueCents: (projects ?? []).reduce(
-      (sum, row) => sum + Number(row.booked_value_cents),
-      0,
+    ...range,
+    ...totals,
+    ...crm,
+    previous: { ...previous, ...previousCrm },
+    comparisonAvailable:
+      new Set(previousMetrics.map((row) => row.date)).size >= 3,
+    campaigns: [...grouped.values()]
+      .map((row) => {
+        const ctr = row.impressions ? row.clicks / row.impressions : 0;
+        const costPerConversionCents = row.reportedConversions
+          ? row.spendCents / row.reportedConversions
+          : null;
+        let recommendation = "Monitor";
+        if (row.spendCents > 0 && !row.reportedConversions)
+          recommendation = "Fix tracking";
+        else if (row.reportedConversions >= 5 && ctr >= 0.04)
+          recommendation = "Scale candidate";
+        else if (row.clicks >= 20 && ctr < 0.03) recommendation = "Watch";
+        return {
+          ...row,
+          ctr,
+          cpcCents: row.clicks ? row.spendCents / row.clicks : 0,
+          costPerConversionCents,
+          impressionShare: row.impressions
+            ? row.weightedImpressionShare / row.impressions
+            : null,
+          recommendation,
+        };
+      })
+      .sort((a, b) => b.spendCents - a.spendCents),
+    daily: [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    trackingIssues: [...issueGroups.values()].sort((a, b) =>
+      a.severity === b.severity
+        ? b.count - a.count
+        : a.severity === "critical"
+          ? -1
+          : 1,
     ),
   };
 }
 
-export async function loadSearchSummary() {
+type SearchMetricRow = {
+  query: string;
+  page: string;
+  clicks: number | string;
+  impressions: number | string;
+  average_position: number | string;
+  date: string;
+};
+
+function summarizeSearchRows(data: SearchMetricRow[]) {
+  const totals = data.reduce(
+    (sum, row) => ({
+      clicks: sum.clicks + Number(row.clicks),
+      impressions: sum.impressions + Number(row.impressions),
+      weightedPosition:
+        sum.weightedPosition +
+        Number(row.average_position) * Number(row.impressions),
+    }),
+    { clicks: 0, impressions: 0, weightedPosition: 0 },
+  );
+  return {
+    ...totals,
+    ctr: totals.impressions ? totals.clicks / totals.impressions : 0,
+    position: totals.impressions
+      ? totals.weightedPosition / totals.impressions
+      : 0,
+  };
+}
+
+export async function loadSearchSummary(range: ReportingWindow) {
   const context = await organizationContext();
   if (!context) return null;
-  const start = new Date(Date.now() - 30 * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  const { data } = await context.supabase
-    .from("search_console_daily_metrics")
-    .select("query,clicks,impressions,ctr,average_position,date")
-    .eq("organization_id", context.organizationId)
-    .eq("search_appearance", "")
-    .gte("date", start);
-  if (!data?.length) return null;
+  const [
+    { data },
+    { data: connection },
+    { data: property },
+    { data: sitemaps },
+    { data: latestRun },
+  ] = await Promise.all([
+    context.supabase
+      .from("search_console_daily_metrics")
+      .select("query,page,clicks,impressions,average_position,date")
+      .eq("organization_id", context.organizationId)
+      .eq("search_appearance", "")
+      .gte("date", range.compareFrom)
+      .lte("date", range.to),
+    context.supabase
+      .from("sync_connections")
+      .select("status,last_attempt_at,last_success_at,configuration")
+      .eq("organization_id", context.organizationId)
+      .eq("provider", "search_console")
+      .maybeSingle(),
+    context.supabase
+      .from("search_console_properties")
+      .select("property_uri,permission_level,last_success_at")
+      .eq("organization_id", context.organizationId)
+      .maybeSingle(),
+    context.supabase
+      .from("search_console_sitemaps")
+      .select("path,status,submitted_at,last_downloaded_at,warnings,errors")
+      .eq("organization_id", context.organizationId)
+      .order("submitted_at", { ascending: false }),
+    context.supabase
+      .from("sync_runs")
+      .select("status,processed_count,error_summary,completed_at,created_at")
+      .eq("organization_id", context.organizationId)
+      .eq("provider", "search_console")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const allRows = (data ?? []) as unknown as SearchMetricRow[];
+  const currentRows = allRows.filter(
+    (row) => row.date >= range.from && row.date <= range.to,
+  );
+  const previousRows = allRows.filter(
+    (row) => row.date >= range.compareFrom && row.date <= range.compareTo,
+  );
   const grouped = new Map<
     string,
     {
@@ -138,7 +373,7 @@ export async function loadSearchSummary() {
       weightedPosition: number;
     }
   >();
-  for (const row of data) {
+  for (const row of currentRows) {
     if (!row.query) continue;
     const current = grouped.get(row.query) ?? {
       query: row.query,
@@ -159,24 +394,71 @@ export async function loadSearchSummary() {
       position: row.impressions ? row.weightedPosition / row.impressions : 0,
     }))
     .sort((a, b) => b.impressions - a.impressions);
-  const totals = queries.reduce(
-    (sum, row) => ({
-      clicks: sum.clicks + row.clicks,
-      impressions: sum.impressions + row.impressions,
-      weightedPosition: sum.weightedPosition + row.weightedPosition,
-    }),
-    { clicks: 0, impressions: 0, weightedPosition: 0 },
-  );
+  const pages = new Map<
+    string,
+    {
+      page: string;
+      clicks: number;
+      impressions: number;
+      weightedPosition: number;
+    }
+  >();
+  const daily = new Map<
+    string,
+    { date: string; clicks: number; impressions: number }
+  >();
+  for (const row of currentRows) {
+    if (row.page) {
+      const page = pages.get(row.page) ?? {
+        page: row.page,
+        clicks: 0,
+        impressions: 0,
+        weightedPosition: 0,
+      };
+      page.clicks += Number(row.clicks);
+      page.impressions += Number(row.impressions);
+      page.weightedPosition +=
+        Number(row.average_position) * Number(row.impressions);
+      pages.set(row.page, page);
+    }
+    const day = daily.get(row.date) ?? {
+      date: row.date,
+      clicks: 0,
+      impressions: 0,
+    };
+    day.clicks += Number(row.clicks);
+    day.impressions += Number(row.impressions);
+    daily.set(row.date, day);
+  }
+  const totals = summarizeSearchRows(currentRows);
+  const previous = summarizeSearchRows(previousRows);
   return {
-    start,
-    end: new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10),
+    ...range,
     clicks: totals.clicks,
     impressions: totals.impressions,
-    ctr: totals.impressions ? totals.clicks / totals.impressions : 0,
-    position: totals.impressions
-      ? totals.weightedPosition / totals.impressions
-      : 0,
+    ctr: totals.ctr,
+    position: totals.position,
+    previous,
     queries: queries.slice(0, 20),
+    pages: [...pages.values()]
+      .map((row) => ({
+        ...row,
+        ctr: row.impressions ? row.clicks / row.impressions : 0,
+        position: row.impressions ? row.weightedPosition / row.impressions : 0,
+      }))
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 10),
+    daily: [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    connection: connection ?? null,
+    property: property ?? null,
+    sitemaps: sitemaps ?? [],
+    latestRun: latestRun ?? null,
+    dataState:
+      connection?.status === "connected" && !currentRows.length
+        ? "processing"
+        : currentRows.length
+          ? "ready"
+          : (connection?.status ?? "not_configured"),
   };
 }
 
@@ -778,7 +1060,9 @@ export async function loadShellState() {
     pipelineCount: pipelineCount ?? 0,
     mappingCount: mappingCount ?? 0,
     healthWarnings: new Set(
-      (healthIssues ?? []).map((issue) => `${issue.provider}:${issue.issue_key}`),
+      (healthIssues ?? []).map(
+        (issue) => `${issue.provider}:${issue.issue_key}`,
+      ),
     ).size,
   };
 }
