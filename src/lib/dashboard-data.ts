@@ -21,19 +21,37 @@ async function organizationContext() {
 export async function loadIntegrationState() {
   const context = await organizationContext();
   if (!context) return null;
-  const [{ data: connections }, { data: issues }] = await Promise.all([
+  const [
+    { data: connections },
+    { data: issues },
+    { count: attributionSessions },
+    { count: attributedProjects },
+  ] = await Promise.all([
     context.supabase
       .from("sync_connections")
       .select("provider,status,last_success_at,last_attempt_at,configuration")
       .eq("organization_id", context.organizationId),
     context.supabase
       .from("integration_health_issues")
-      .select("provider,severity,title,detail,last_detected_at")
+      .select("provider,issue_key,severity,title,detail,last_detected_at")
       .eq("organization_id", context.organizationId)
       .is("resolved_at", null)
       .order("last_detected_at", { ascending: false }),
+    context.supabase
+      .from("attribution_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId),
+    context.supabase
+      .from("lead_attribution")
+      .select("project_id", { count: "exact", head: true })
+      .eq("organization_id", context.organizationId),
   ]);
-  return { connections: connections ?? [], issues: issues ?? [] };
+  return {
+    connections: connections ?? [],
+    issues: issues ?? [],
+    attributionSessions: attributionSessions ?? 0,
+    attributedProjects: attributedProjects ?? 0,
+  };
 }
 
 type ReportingWindow = {
@@ -99,11 +117,11 @@ export async function loadAdsSummary(range: ReportingWindow) {
     context.supabase
       .from("projects")
       .select(
-        "id,created_at,booked_value_cents,collected_cents,lead_source,lead_attribution(gclid,gbraid,wbraid,utm_source,utm_medium,occurred_at)",
+        "id,inquiry_at,booked_at,booked_value_cents,collected_cents,lead_source,lead_attribution(gclid,gbraid,wbraid,utm_source,utm_medium,occurred_at)",
       )
       .eq("organization_id", context.organizationId)
-      .gte("created_at", `${range.compareFrom}T00:00:00Z`)
-      .lte("created_at", `${range.to}T23:59:59.999Z`),
+      .gte("inquiry_at", `${range.compareFrom}T00:00:00Z`)
+      .lte("inquiry_at", `${range.to}T23:59:59.999Z`),
     context.supabase
       .from("integration_health_issues")
       .select("issue_key,severity,title,detail")
@@ -159,7 +177,8 @@ export async function loadAdsSummary(range: ReportingWindow) {
   const totals = summarizeAdRows(currentMetrics);
   const previous = summarizeAdRows(previousMetrics);
   const projectRows = (projects ?? []) as Array<{
-    created_at: string;
+    inquiry_at: string;
+    booked_at: string | null;
     booked_value_cents: number | string;
     collected_cents: number | string;
     lead_source: string | null;
@@ -188,7 +207,7 @@ export async function loadAdsSummary(range: ReportingWindow) {
   });
   const projectPeriod = (from: string, to: string) => {
     const rows = googleProjects.filter((project) => {
-      const date = project.created_at.slice(0, 10);
+      const date = project.inquiry_at.slice(0, 10);
       return date >= from && date <= to;
     });
     const matched = rows.filter((project) =>
@@ -470,10 +489,11 @@ export async function loadAttributionReport() {
     context.supabase
       .from("lead_attribution")
       .select(
-        "project_id,touch_type,utm_source,utm_medium,landing_page,gclid,gbraid,wbraid,projects(name,booked_value_cents,pipeline_stages(key))",
+        "project_id,touch_type,utm_source,utm_medium,landing_page,gclid,gbraid,wbraid,occurred_at,projects(name,booked_value_cents,pipeline_stages(key))",
       )
       .eq("organization_id", context.organizationId)
-      .eq("touch_type", "first_touch"),
+      .eq("touch_type", "first_touch")
+      .gte("occurred_at", new Date(Date.now() - 30 * 86_400_000).toISOString()),
     context.supabase
       .from("search_console_daily_metrics")
       .select("page,clicks,impressions")
@@ -670,6 +690,8 @@ export type LiveProject = {
   source: string;
   sourceOrigin: string;
   owner: string;
+  inquiryAt: string | null;
+  bookedAt: string | null;
   eventType: string;
   eventDate: string | null;
   venue: string;
@@ -780,7 +802,12 @@ function mapProject(row: ProjectRow): LiveProject {
     stageKey: stringOrNull(stage?.key),
     source: sourceLabel,
     sourceOrigin: String(row.source_origin ?? "manual"),
-    owner: stringOrNull(owner?.display_name) ?? "Unassigned",
+    owner:
+      stringOrNull(owner?.display_name) ??
+      stringOrNull(row.owner_name) ??
+      "Unassigned",
+    inquiryAt: stringOrNull(row.inquiry_at),
+    bookedAt: stringOrNull(row.booked_at),
     eventType: stringOrNull(row.event_type) ?? "Event type not set",
     eventDate: stringOrNull(row.event_at),
     venue: stringOrNull(row.venue_name) ?? "Venue not set",
@@ -813,7 +840,7 @@ function mapProject(row: ProjectRow): LiveProject {
 }
 
 const projectSelect =
-  "id,name,event_type,event_at,venue_name,city,region,lead_source,source_origin,raw_provider_fields,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
+  "id,name,event_type,event_at,inquiry_at,booked_at,venue_name,city,region,lead_source,owner_name,source_origin,raw_provider_fields,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
 
 export async function loadPipelineProjects() {
   const context = await organizationContext();
@@ -942,7 +969,7 @@ export async function loadCommandCenter() {
     (project) => !["lost", "archived"].includes(project.stageKey ?? ""),
   );
   const needsResponse = activeProjects.filter(
-    (project) => !project.lastContactAt,
+    (project) => project.stageKey === "inquiry" && !project.lastContactAt,
   );
   const followUpsDue = activeProjects.filter(
     (project) =>
@@ -960,7 +987,10 @@ export async function loadCommandCenter() {
     )
     .slice(0, 8);
   const bookedThisMonth = projects.filter(
-    (project) => project.bookedCents > 0 && project.createdAt >= monthStart,
+    (project) =>
+      project.bookedCents > 0 &&
+      project.bookedAt &&
+      project.bookedAt >= monthStart,
   );
   const ads = (adMetrics ?? []).reduce(
     (sum, row) => ({
@@ -992,8 +1022,9 @@ export async function loadCommandCenter() {
     connections: connections ?? [],
     pendingMappings: pendingMappings ?? 0,
     metrics: {
-      newLeads: projects.filter((project) => project.createdAt >= monthStart)
-        .length,
+      newLeads: projects.filter(
+        (project) => project.inquiryAt && project.inquiryAt >= monthStart,
+      ).length,
       needsResponse: needsResponse.length,
       followUpsDue: followUpsDue.length,
       overdue: overdue.length,
@@ -1022,16 +1053,16 @@ export async function loadCommandCenter() {
         (project) => project.eventDate && project.eventDate >= todayStart,
       ).length,
       adSpendCents: ads.spendCents,
-      cplCents: projects.length
-        ? Math.round(
-            ads.spendCents /
-              Math.max(
-                1,
-                projects.filter((project) => project.createdAt >= monthStart)
-                  .length,
-              ),
-          )
-        : 0,
+      cplCents: (() => {
+        const datedLeads = projects.filter(
+          (project) => project.inquiryAt && project.inquiryAt >= monthStart,
+        ).length;
+        return datedLeads ? Math.round(ads.spendCents / datedLeads) : null;
+      })(),
+      lifecycleCoverage: {
+        inquiryDates: projects.filter((project) => project.inquiryAt).length,
+        bookingDates: projects.filter((project) => project.bookedAt).length,
+      },
       organicClicks: search.clicks,
       organicImpressions: search.impressions,
       averagePosition: search.impressions

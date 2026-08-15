@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LiveProject } from "@/lib/dashboard-data";
-import { countPipelineViews, sortPipelineProjects } from "./pipeline-filtering";
+import {
+  countPipelineViews,
+  filterPipelineProjects,
+  sortPipelineProjects,
+} from "./pipeline-filtering";
 
 const projects = [
   {
@@ -66,5 +70,13 @@ describe("pipeline filter counts", () => {
         (project) => project.name,
       ),
     ).toEqual(["Booked Wedding", "Carrington Open House"]);
+  });
+
+  it("limits the attention view's first-response rule to inquiries", () => {
+    expect(
+      filterPipelineProjects(projects, "attention", "").map(
+        (project) => project.name,
+      ),
+    ).toEqual(["Carrington Open House"]);
   });
 });

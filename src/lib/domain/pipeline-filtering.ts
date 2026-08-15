@@ -131,7 +131,7 @@ export function filterPipelineProjects(
     if (view === "lost") return project.stageKey === "lost";
     if (view === "attention")
       return (
-        !project.lastContactAt ||
+        (project.stageKey === "inquiry" && !project.lastContactAt) ||
         Boolean(
           project.nextFollowUpAt && Date.parse(project.nextFollowUpAt) <= now,
         )

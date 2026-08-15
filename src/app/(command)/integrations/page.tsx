@@ -37,9 +37,31 @@ const connectors = [
     tone: "neutral",
     fresh: "Phase 3",
   },
+  {
+    name: "Website attribution",
+    status: "Install needed",
+    detail: "First-touch, UTMs, and Google click IDs · no form PII",
+    tone: "warn",
+    fresh: "No sessions captured",
+  },
 ];
 export default async function IntegrationsPage() {
   const live = await loadIntegrationState();
+  const issueGroups = Object.values(
+    (live?.issues ?? []).reduce(
+      (groups, issue) => {
+        const key = `${issue.provider}:${issue.issue_key}`;
+        const current = groups[key] ?? { ...issue, count: 0 };
+        current.count += 1;
+        groups[key] = current;
+        return groups;
+      },
+      {} as Record<
+        string,
+        NonNullable<typeof live>["issues"][number] & { count: number }
+      >,
+    ),
+  ).sort((left, right) => right.count - left.count);
   const byProvider = new Map(
     (live?.connections ?? []).map((connection) => [
       connection.provider,
@@ -57,7 +79,9 @@ export default async function IntegrationsPage() {
             ? "google_sheets"
             : item.name.startsWith("Company email")
               ? "gmail"
-              : null;
+              : item.name.startsWith("Website attribution")
+                ? "website_attribution"
+                : null;
     const connection = provider ? byProvider.get(provider) : null;
     const manualHoneyBook =
       item.name === "HoneyBook" ? byProvider.get("honeybook_manual") : null;
@@ -71,19 +95,25 @@ export default async function IntegrationsPage() {
     return {
       ...item,
       status:
-        item.name === "HoneyBook" &&
-        manualHoneyBook?.status === "connected" &&
-        connection?.status !== "connected"
-          ? "manual upload ready"
-          : (connection?.status?.replaceAll("_", " ") ?? item.status),
+        item.name === "Website attribution"
+          ? (live?.attributionSessions ?? 0) > 0
+            ? "capturing"
+            : "install needed"
+          : item.name === "HoneyBook" &&
+              manualHoneyBook?.status === "connected" &&
+              connection?.status !== "connected"
+            ? "manual upload ready"
+            : (connection?.status?.replaceAll("_", " ") ?? item.status),
       fresh:
-        (honeyBookFresh ?? connection?.last_success_at)
-          ? new Date(
-              String(honeyBookFresh ?? connection?.last_success_at),
-            ).toLocaleString("en-US", {
-              timeZone: "America/Chicago",
-            })
-          : item.fresh,
+        item.name === "Website attribution"
+          ? `${live?.attributionSessions ?? 0} sessions · ${live?.attributedProjects ?? 0} projects claimed`
+          : (honeyBookFresh ?? connection?.last_success_at)
+            ? new Date(
+                String(honeyBookFresh ?? connection?.last_success_at),
+              ).toLocaleString("en-US", {
+                timeZone: "America/Chicago",
+              })
+            : item.fresh,
       provider,
     };
   });
@@ -108,9 +138,11 @@ export default async function IntegrationsPage() {
             className="paper flex flex-col gap-4 rounded-xl border p-5 lg:flex-row lg:items-center"
           >
             <span
-              className={`grid size-11 shrink-0 place-items-center rounded-xl ${item.status === "connected" || item.tone === "ready" ? "bg-moss/12 text-moss" : item.tone === "warn" ? "bg-marigold/20 text-[#845e0d]" : "bg-ink/8 text-ink/45"}`}
+              className={`grid size-11 shrink-0 place-items-center rounded-xl ${item.status === "connected" || item.status === "capturing" || item.tone === "ready" ? "bg-moss/12 text-moss" : item.tone === "warn" ? "bg-marigold/20 text-[#845e0d]" : "bg-ink/8 text-ink/45"}`}
             >
-              {item.status === "connected" || item.tone === "ready" ? (
+              {item.status === "connected" ||
+              item.status === "capturing" ||
+              item.tone === "ready" ? (
                 <CheckCircle2 className="size-5" />
               ) : item.tone === "warn" ? (
                 <AlertTriangle className="size-5" />
@@ -153,6 +185,13 @@ export default async function IntegrationsPage() {
               >
                 <KeyRound className="size-3.5" /> Setup guide
               </Link>
+            ) : item.provider === "website_attribution" ? (
+              <Link
+                href="/attribution"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+              >
+                Setup details
+              </Link>
             ) : (
               <span className="text-[10px] text-ink/40">
                 No action required
@@ -161,13 +200,14 @@ export default async function IntegrationsPage() {
           </section>
         ))}
       </div>
-      {live?.issues?.length ? (
+      {issueGroups.length ? (
         <section className="mt-5 rounded-xl border border-marigold/45 bg-[#fff7dd] p-5">
           <p className="text-xs font-bold">Open integration issues</p>
           <ul className="mt-3 space-y-2 text-[10px] text-ink/55">
-            {live.issues.map((issue, index) => (
-              <li key={`${issue.provider}-${index}`}>
+            {issueGroups.map((issue) => (
+              <li key={`${issue.provider}-${issue.issue_key}`}>
                 {issue.provider}: {issue.title}
+                {issue.count > 1 ? ` · ${issue.count} affected` : ""}
               </li>
             ))}
           </ul>

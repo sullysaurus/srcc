@@ -104,6 +104,9 @@ export default async function CommunicationsPage() {
                   <span className="rounded-full border bg-white px-2 py-0.5 text-[8px] font-bold">
                     {message.direction}
                   </span>
+                  <span className="rounded-full border bg-white px-2 py-0.5 text-[8px] font-bold uppercase">
+                    {message.channel}
+                  </span>
                 </div>
                 <p className="mt-1 text-[10px] text-ink/48">
                   {projectName(message.projects)} · matched by{" "}
@@ -124,9 +127,9 @@ export default async function CommunicationsPage() {
       </section>
       <div className="mt-4 flex items-start gap-2 rounded-lg border border-coral/25 bg-[#fff0e9] px-4 py-3 text-[10px] leading-5 text-ink/55">
         <AlertCircle className="mt-0.5 size-4 shrink-0 text-coral" />
-        SMS and phone calls remain manual unless a supported provider is
-        authorized. The dashboard never guesses that an unavailable message
-        occurred.
+        HoneyBook SMS timestamps are captured when Gmail sync sees the matching
+        notification; the message body remains in HoneyBook. Phone calls stay
+        manual unless a supported provider is authorized.
       </div>
     </div>
   );

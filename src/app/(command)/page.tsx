@@ -12,6 +12,12 @@ import { loadCommandCenter } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/domain/money";
 import { formatReadableDateRange } from "@/lib/domain/reporting-date-range";
 
+function channelLabel(value: string | null) {
+  if (!value) return "No channel recorded";
+  if (value.toLowerCase() === "sms") return "SMS";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export default async function OverviewPage() {
   const data = await loadCommandCenter();
   if (!data) return null;
@@ -20,7 +26,7 @@ export default async function OverviewPage() {
     [
       "New leads",
       data.metrics.newLeads.toLocaleString(),
-      `${range} · Projects`,
+      `${range} · Inquiry date`,
     ],
     [
       "Needs response",
@@ -43,16 +49,20 @@ export default async function OverviewPage() {
       data.metrics.proposalsViewed.toLocaleString(),
       `${range} · Confirmed activity`,
     ],
-    ["Bookings", data.metrics.bookings.toLocaleString(), `${range} · Projects`],
+    [
+      "Bookings",
+      data.metrics.bookings.toLocaleString(),
+      `${range} · Booking date`,
+    ],
     [
       "Booked revenue",
       formatCents(data.metrics.bookedCents),
-      `${range} · Projects`,
+      `${range} · Booking date`,
     ],
     [
       "Collected",
       formatCents(data.metrics.collectedCents),
-      `All retained · Payments`,
+      `All retained · Project totals`,
     ],
     [
       "Outstanding",
@@ -121,6 +131,16 @@ export default async function OverviewPage() {
           </div>
         ))}
       </section>
+      {data.metrics.lifecycleCoverage.inquiryDates < data.projects.length ? (
+        <section className="mb-5 rounded-xl border border-marigold/45 bg-[#fff7dd] px-4 py-3 text-[10px] leading-5 text-ink/60">
+          <strong className="text-ink">
+            Lifecycle dates are still filling.
+          </strong>{" "}
+          Monthly lead, booking, revenue, and cost-per-lead figures only include
+          records carrying their actual HoneyBook inquiry or booking date. They
+          no longer treat the CSV import date as a business event.
+        </section>
+      ) : null}
       <div className="grid gap-5 xl:grid-cols-12">
         <section className="paper overflow-hidden rounded-xl border xl:col-span-8">
           <div className="flex items-center justify-between border-b px-5 py-4">
@@ -207,7 +227,7 @@ export default async function OverviewPage() {
                               : "Review next step"}
                         </p>
                         <p className="mt-1 text-[9px] text-ink/42">
-                          {project.lastContactChannel ?? "No channel recorded"}
+                          {channelLabel(project.lastContactChannel)}
                         </p>
                       </td>
                       <td className="px-5 py-4 text-right font-mono text-xs font-bold">
@@ -287,7 +307,9 @@ export default async function OverviewPage() {
             <div>
               <p className="text-[10px] text-ink/45">Cost / lead</p>
               <p className="mt-1 font-display text-2xl">
-                {formatCents(data.metrics.cplCents)}
+                {data.metrics.cplCents === null
+                  ? "—"
+                  : formatCents(data.metrics.cplCents)}
               </p>
             </div>
             <div>

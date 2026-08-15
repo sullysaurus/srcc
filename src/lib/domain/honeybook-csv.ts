@@ -13,23 +13,50 @@ const aliases = {
   projectUrl: ["project url", "honeybook url", "workspace url", "project link"],
   clientId: ["client id", "honeybook client id", "client_id"],
   projectName: ["project name", "project", "name"],
-  clientName: ["client name", "contact", "contacts", "contact name"],
+  clientName: [
+    "client name",
+    "client info",
+    "contact",
+    "contacts",
+    "contact name",
+  ],
   firstName: ["first name", "firstname"],
   lastName: ["last name", "lastname"],
   email: ["email", "email address", "client email"],
   phone: ["phone", "phone number", "mobile", "client phone"],
   stage: ["stage", "project stage", "pipeline stage", "status"],
+  inquiryAt: [
+    "inquiry date",
+    "date received",
+    "lead date",
+    "project created date",
+    "project creation date",
+    "created date",
+  ],
+  bookedAt: ["booked date", "booking date", "contract signed date"],
   eventDate: ["service date", "event date", "project date", "date"],
   eventType: ["project type", "event type", "type"],
   service: ["service", "services", "service type", "package"],
   leadSource: ["lead source", "source"],
+  ownerName: [
+    "owner",
+    "project owner",
+    "team member",
+    "team members",
+    "assigned to",
+  ],
   venue: ["venue", "venue name"],
   city: ["city", "location", "event location"],
   region: ["state", "region"],
   estimatedValue: ["estimated value", "estimate", "project value"],
   proposalValue: ["proposal value", "proposal amount"],
-  bookedValue: ["booked value", "contract value", "total value"],
-  collected: ["collected", "amount paid", "paid"],
+  bookedValue: [
+    "booked value",
+    "contract value",
+    "total value",
+    "total project value",
+  ],
+  collected: ["collected", "amount paid", "paid", "total paid"],
   recentActivityAt: [
     "recent activity date",
     "last communication",
@@ -106,6 +133,14 @@ function splitName(value: string) {
   };
 }
 
+function extractEmail(value: string) {
+  return value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
+}
+
+function withoutEmail(value: string) {
+  return value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "").trim();
+}
+
 function normalizeServices(value: string) {
   if (!value.trim()) return [];
   const candidates = value
@@ -146,7 +181,8 @@ export function previewHoneyBookCsv(csv: string) {
     const projectUrl = valueAt(cells, "projectUrl") || null;
     const projectId =
       valueAt(cells, "projectId") || projectIdFromUrl(projectUrl ?? "");
-    const clientName = valueAt(cells, "clientName");
+    const clientInfo = valueAt(cells, "clientName");
+    const clientName = withoutEmail(clientInfo);
     const names = splitName(clientName);
     const sourceStage = valueAt(cells, "stage");
     const stage = stageByLabel.get(sourceStage.toLowerCase()) ?? null;
@@ -173,16 +209,21 @@ export function previewHoneyBookCsv(csv: string) {
         `HoneyBook project · row ${index + 2}`,
       firstName: valueAt(cells, "firstName") || names.firstName,
       lastName: valueAt(cells, "lastName") || names.lastName,
-      email: normalizeEmail(valueAt(cells, "email")),
+      email: normalizeEmail(
+        valueAt(cells, "email") || extractEmail(clientInfo),
+      ),
       phone: normalizePhone(valueAt(cells, "phone")),
       stageKey: stage?.key ?? null,
       stageName: sourceStage || null,
       stageOrder: stage?.order ?? null,
+      inquiryAt: parseDate(valueAt(cells, "inquiryAt")),
+      bookedAt: parseDate(valueAt(cells, "bookedAt")),
       eventDate: parseDate(valueAt(cells, "eventDate")),
       eventType: valueAt(cells, "eventType") || null,
       services,
       serviceSource: serviceSource || null,
       leadSource: valueAt(cells, "leadSource") || null,
+      ownerName: withoutEmail(valueAt(cells, "ownerName")) || null,
       venue: valueAt(cells, "venue") || null,
       city: valueAt(cells, "city") || null,
       region: valueAt(cells, "region") || null,

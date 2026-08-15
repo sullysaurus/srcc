@@ -93,6 +93,12 @@ function dateLabel(value: string | null) {
     : "—";
 }
 
+function channelLabel(value: string | null) {
+  if (!value) return "HoneyBook/Zapier limitation";
+  if (value.toLowerCase() === "sms") return "SMS";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function SortableColumnHeader({
   label,
   sortKey,
@@ -556,8 +562,7 @@ export default async function PipelinePage({
                           : "Not supplied"}
                       </p>
                       <p className="mt-1 text-[9px] text-ink/40">
-                        {project.lastContactChannel ??
-                          "HoneyBook/Zapier limitation"}
+                        {channelLabel(project.lastContactChannel)}
                       </p>
                     </td>
                     <td className="px-3 py-4">
