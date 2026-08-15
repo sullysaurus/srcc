@@ -1,6 +1,9 @@
 import { CalendarRange } from "lucide-react";
 import Link from "next/link";
-import type { ReportingRange } from "@/lib/domain/reporting-date-range";
+import {
+  formatReadableDateRange,
+  type ReportingRange,
+} from "@/lib/domain/reporting-date-range";
 
 export function ReportingDateRange({
   action,
@@ -23,7 +26,7 @@ export function ReportingDateRange({
             <p className="text-xs font-bold">Reporting window</p>
           </div>
           <p className="mt-1 text-[10px] text-ink/45">
-            {range.from} through {range.to} · {lagLabel}
+            {formatReadableDateRange(range.from, range.to)} · {lagLabel}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5" aria-label="Date presets">

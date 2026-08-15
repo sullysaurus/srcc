@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveProject } from "@/lib/dashboard-data";
-import { countPipelineViews } from "./pipeline-filtering";
+import { countPipelineViews, sortPipelineProjects } from "./pipeline-filtering";
 
 const projects = [
   {
@@ -48,5 +48,23 @@ describe("pipeline filter counts", () => {
     expect(counts.get("all")).toBe(1);
     expect(counts.get("new")).toBe(1);
     expect(counts.get("booked")).toBe(0);
+  });
+
+  it("sorts populated values while keeping missing values last", () => {
+    const sortable = [
+      { ...projects[0], lastContactAt: null },
+      { ...projects[1], lastContactAt: "2026-08-13T12:00:00Z" },
+    ];
+
+    expect(
+      sortPipelineProjects(sortable, "last-contact", "desc").map(
+        (project) => project.name,
+      ),
+    ).toEqual(["Booked Wedding", "Carrington Open House"]);
+    expect(
+      sortPipelineProjects(projects, "lead", "asc").map(
+        (project) => project.name,
+      ),
+    ).toEqual(["Booked Wedding", "Carrington Open House"]);
   });
 });

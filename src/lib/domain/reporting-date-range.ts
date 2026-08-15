@@ -79,3 +79,36 @@ export function percentChange(current: number, previous: number) {
   if (!previous) return current ? null : 0;
   return (current - previous) / previous;
 }
+
+function reportingDate(value: string) {
+  const valid = validReportingDate(value);
+  return valid ? new Date(`${valid}T12:00:00Z`) : null;
+}
+
+export function formatReadableDate(value: string, includeYear = true) {
+  const date = reportingDate(value);
+  if (!date) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" as const } : {}),
+    timeZone: "UTC",
+  }).format(date);
+}
+
+export function formatReadableDateRange(from: string, to: string) {
+  const start = reportingDate(from);
+  const end = reportingDate(to);
+  if (!start || !end) return `${from}–${to}`;
+  if (from === to) return formatReadableDate(from);
+
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  if (sameMonth) {
+    return `${formatReadableDate(from, false)}–${end.getUTCDate()}, ${end.getUTCFullYear()}`;
+  }
+  if (sameYear) {
+    return `${formatReadableDate(from, false)}–${formatReadableDate(to)}`;
+  }
+  return `${formatReadableDate(from)}–${formatReadableDate(to)}`;
+}

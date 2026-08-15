@@ -5,6 +5,7 @@ import {
   dateKeyInTimeZone,
   startOfDateInTimeZone,
 } from "@/lib/domain/dates";
+import { displayProjectName } from "@/lib/domain/project-display";
 
 async function organizationContext() {
   const context = await getOrganizationContext();
@@ -731,10 +732,20 @@ function mapProject(row: ProjectRow): LiveProject {
     String(right.sent_at ?? "").localeCompare(String(left.sent_at ?? "")),
   );
   const proposal = proposals[0];
-  const views = (proposal?.proposal_views ?? [])
+  const views = proposals
+    .flatMap((item) => item.proposal_views ?? [])
     .map((view) => String(view.viewed_at))
     .filter(Boolean)
     .toSorted();
+  const signedProposal = proposals.find(
+    (item) =>
+      item.signed_at || String(item.status ?? "").toLowerCase() === "signed",
+  );
+  const proposalStatus = signedProposal
+    ? "Signed"
+    : views.length
+      ? "Viewed"
+      : (stringOrNull(proposal?.status) ?? "Not sent");
   const attribution =
     (row.lead_attribution ?? []).find(
       (touch) => touch.touch_type === "last_non_direct",
@@ -756,7 +767,9 @@ function mapProject(row: ProjectRow): LiveProject {
   const rawProviderFields = one(row.raw_provider_fields) ?? {};
   return {
     id: String(row.id),
-    name: stringOrNull(row.name) ?? (contactName || "Unnamed lead"),
+    name: displayProjectName(
+      stringOrNull(row.name) ?? (contactName || "Unnamed lead"),
+    ),
     contactName: contactName || stringOrNull(row.name) || "Unnamed lead",
     email: stringOrNull(contact?.email_normalized),
     phone: stringOrNull(contact?.phone_e164),
@@ -789,7 +802,7 @@ function mapProject(row: ProjectRow): LiveProject {
     lastContactChannel: stringOrNull(row.last_communication_channel),
     nextFollowUpAt: stringOrNull(row.next_follow_up_at),
     temperature: stringOrNull(row.lead_temperature),
-    proposalStatus: stringOrNull(proposal?.status) ?? "Not sent",
+    proposalStatus,
     proposalSentAt: stringOrNull(proposal?.sent_at),
     firstViewedAt: views[0] ?? null,
     latestViewedAt: views.at(-1) ?? null,

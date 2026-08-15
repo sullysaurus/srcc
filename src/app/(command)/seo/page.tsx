@@ -12,6 +12,7 @@ import {
 import { ReportingDateRange } from "@/components/command-center/reporting-date-range";
 import { loadSearchSummary } from "@/lib/dashboard-data";
 import {
+  formatReadableDate,
   percentChange,
   resolveReportingRange,
   type ReportingRangeParams,
@@ -285,8 +286,16 @@ export default async function SeoPage({
                   ))}
                 </div>
                 <div className="mt-2 flex justify-between font-mono text-[8px] text-ink/35">
-                  <span>{live.daily[0]?.date.slice(5)}</span>
-                  <span>{live.daily.at(-1)?.date.slice(5)}</span>
+                  <span>
+                    {live.daily[0]?.date
+                      ? formatReadableDate(live.daily[0].date, false)
+                      : "—"}
+                  </span>
+                  <span>
+                    {live.daily.at(-1)?.date
+                      ? formatReadableDate(live.daily.at(-1)!.date, false)
+                      : "—"}
+                  </span>
                 </div>
               </>
             ) : (

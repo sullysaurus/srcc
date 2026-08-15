@@ -10,11 +10,12 @@ import Link from "next/link";
 
 import { loadCommandCenter } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/domain/money";
+import { formatReadableDateRange } from "@/lib/domain/reporting-date-range";
 
 export default async function OverviewPage() {
   const data = await loadCommandCenter();
   if (!data) return null;
-  const range = `${data.range.start}–${data.range.end}`;
+  const range = formatReadableDateRange(data.range.start, data.range.end);
   const metrics = [
     [
       "New leads",
@@ -140,10 +141,12 @@ export default async function OverviewPage() {
           </div>
           {data.attention.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left">
+              <table className="w-full min-w-[1080px] text-left">
                 <thead className="bg-ink/[.035] font-mono text-[8px] tracking-[.12em] text-ink/45 uppercase">
                   <tr>
                     <th className="px-5 py-3">Lead / event</th>
+                    <th className="px-3 py-3">Contacts</th>
+                    <th className="px-3 py-3">Location</th>
                     <th className="px-3 py-3">Stage</th>
                     <th className="px-3 py-3">Next move</th>
                     <th className="px-5 py-3 text-right">Potential</th>
@@ -160,7 +163,34 @@ export default async function OverviewPage() {
                           {project.name}
                         </Link>
                         <p className="mt-1 text-[10px] text-ink/45">
-                          {project.eventType} · {project.location}
+                          {project.eventType}
+                        </p>
+                      </td>
+                      <td className="px-3 py-4">
+                        <p className="text-xs font-bold">
+                          {project.contactName}
+                        </p>
+                        {project.email ? (
+                          <a
+                            href={`mailto:${project.email}`}
+                            className="mt-1 block text-[9px] text-ink/45 hover:text-coral"
+                          >
+                            {project.email}
+                          </a>
+                        ) : null}
+                        {project.phone ? (
+                          <a
+                            href={`tel:${project.phone}`}
+                            className="mt-1 block text-[9px] text-ink/45 hover:text-coral"
+                          >
+                            {project.phone}
+                          </a>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-4">
+                        <p className="text-xs font-bold">{project.venue}</p>
+                        <p className="mt-1 text-[9px] text-ink/45">
+                          {project.location}
                         </p>
                       </td>
                       <td className="px-3 py-4">

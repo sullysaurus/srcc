@@ -35,6 +35,8 @@ const stageAliases: Record<string, PipelineStage> = {
   qualified: "Qualified",
   "proposal sent": "Proposal Sent",
   proposal: "Proposal Sent",
+  "proposal viewed": "Proposal Viewed",
+  viewed: "Proposal Viewed",
   followup: "Follow-up",
   "follow up": "Follow-up",
   signed: "Proposal Signed",

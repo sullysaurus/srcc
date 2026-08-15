@@ -50,18 +50,20 @@ describe("HoneyBook CSV import", () => {
     const csv = [
       "Project ID,Project Stage",
       "1,Proposal sent",
-      "2,Completed",
-      "3,Retainer paid",
-      "4,Planning",
-      "5,Inquiry",
-      "6,Follow-up",
-      "7,Proposal signed",
-      "8,Meeting",
-      "9,Archived",
+      "2,Proposal viewed",
+      "3,Completed",
+      "4,Retainer paid",
+      "5,Planning",
+      "6,Inquiry",
+      "7,Follow-up",
+      "8,Proposal signed",
+      "9,Meeting",
+      "10,Archived",
     ].join("\n");
     const rows = previewHoneyBookCsv(csv);
     expect(rows.map((row) => row.normalizedValues.stageKey)).toEqual([
       "proposal_sent",
+      "proposal_viewed",
       "completed",
       "retainer_paid",
       "planning",

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatReadableDate,
+  formatReadableDateRange,
   percentChange,
   resolveReportingRange,
   validReportingDate,
@@ -39,5 +41,19 @@ describe("reporting date ranges", () => {
     expect(validReportingDate("2026-02-30")).toBe("");
     expect(percentChange(15, 10)).toBe(0.5);
     expect(percentChange(15, 0)).toBeNull();
+  });
+
+  it("formats dates and ranges for people instead of databases", () => {
+    expect(formatReadableDate("2026-08-14")).toBe("Aug 14, 2026");
+    expect(formatReadableDate("2026-08-14", false)).toBe("Aug 14");
+    expect(formatReadableDateRange("2026-08-01", "2026-08-14")).toBe(
+      "Aug 1–14, 2026",
+    );
+    expect(formatReadableDateRange("2026-07-15", "2026-08-14")).toBe(
+      "Jul 15–Aug 14, 2026",
+    );
+    expect(formatReadableDateRange("2025-12-15", "2026-01-14")).toBe(
+      "Dec 15, 2025–Jan 14, 2026",
+    );
   });
 });

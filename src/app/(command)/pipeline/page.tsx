@@ -1,5 +1,8 @@
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
   CalendarDays,
   CalendarRange,
   Columns3,
@@ -11,7 +14,13 @@ import Link from "next/link";
 import { loadPipelineProjects } from "@/lib/dashboard-data";
 import {
   countPipelineViews,
+  defaultPipelineSortDirection,
   filterPipelineProjects,
+  sortPipelineProjects,
+  validPipelineSortDirection,
+  validPipelineSortKey,
+  type PipelineSortDirection,
+  type PipelineSortKey,
 } from "@/lib/domain/pipeline-filtering";
 import { formatCents } from "@/lib/domain/money";
 import {
@@ -35,6 +44,7 @@ const savedViews = [
 
 const honeyBookStageOrder = [
   "Proposal sent",
+  "Proposal viewed",
   "Completed",
   "Retainer paid",
   "Planning",
@@ -51,6 +61,8 @@ type PipelineSearchParams = {
   layout?: string;
   from?: string;
   to?: string;
+  sort?: string;
+  dir?: string;
 };
 
 function pipelineHref(
@@ -64,6 +76,8 @@ function pipelineHref(
   if (next.layout === "kanban") query.set("layout", "kanban");
   if (next.from) query.set("from", next.from);
   if (next.to) query.set("to", next.to);
+  if (next.sort) query.set("sort", next.sort);
+  if (next.dir) query.set("dir", next.dir);
   const suffix = query.toString();
   return suffix ? `/pipeline?${suffix}` : "/pipeline";
 }
@@ -79,6 +93,57 @@ function dateLabel(value: string | null) {
     : "—";
 }
 
+function SortableColumnHeader({
+  label,
+  sortKey,
+  activeSort,
+  activeDirection,
+  params,
+  className = "px-3 py-3",
+}: {
+  label: string;
+  sortKey: PipelineSortKey;
+  activeSort: PipelineSortKey | null;
+  activeDirection: PipelineSortDirection;
+  params: PipelineSearchParams;
+  className?: string;
+}) {
+  const selected = activeSort === sortKey;
+  const nextDirection = selected
+    ? activeDirection === "asc"
+      ? "desc"
+      : "asc"
+    : defaultPipelineSortDirection(sortKey);
+  const Icon = selected
+    ? activeDirection === "asc"
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
+  return (
+    <th
+      className={className}
+      aria-sort={
+        selected
+          ? activeDirection === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <Link
+        href={pipelineHref(params, {
+          sort: sortKey,
+          dir: nextDirection,
+        })}
+        className="inline-flex items-center gap-1.5 hover:text-ink"
+      >
+        {label}
+        <Icon className={`size-3 ${selected ? "text-coral" : "opacity-35"}`} />
+      </Link>
+    </th>
+  );
+}
+
 export default async function PipelinePage({
   searchParams,
 }: {
@@ -89,18 +154,28 @@ export default async function PipelinePage({
   const activeView = params.view ?? "all";
   const fromDate = validPipelineDateParam(params.from);
   const toDate = validPipelineDateParam(params.to);
+  const activeSort = validPipelineSortKey(params.sort);
+  const activeDirection =
+    validPipelineSortDirection(params.dir) ??
+    (activeSort ? defaultPipelineSortDirection(activeSort) : "asc");
   const activeParams = {
     ...params,
     view: activeView,
     from: fromDate,
     to: toDate,
+    sort: activeSort ?? undefined,
+    dir: activeSort ? activeDirection : undefined,
   };
-  const projects = filterPipelineProjects(
-    allProjects,
-    activeView,
-    params.q ?? "",
-    fromDate,
-    toDate,
+  const projects = sortPipelineProjects(
+    filterPipelineProjects(
+      allProjects,
+      activeView,
+      params.q ?? "",
+      fromDate,
+      toDate,
+    ),
+    activeSort,
+    activeDirection,
   );
   const kanban = params.layout === "kanban";
   const today = pipelineDateKey(new Date().toISOString()) ?? "";
@@ -116,7 +191,11 @@ export default async function PipelinePage({
   const hasAnyFilter =
     activeView !== "all" || Boolean(params.q) || hasDateRange;
   const resetFiltersHref = pipelineHref(
-    { layout: kanban ? "kanban" : undefined },
+    {
+      layout: kanban ? "kanban" : undefined,
+      sort: activeSort ?? undefined,
+      dir: activeSort ? activeDirection : undefined,
+    },
     {},
   );
   return (
@@ -176,6 +255,12 @@ export default async function PipelinePage({
       >
         <input type="hidden" name="view" value={activeView} />
         {kanban ? <input type="hidden" name="layout" value="kanban" /> : null}
+        {activeSort ? (
+          <>
+            <input type="hidden" name="sort" value={activeSort} />
+            <input type="hidden" name="dir" value={activeDirection} />
+          </>
+        ) : null}
         <div>
           <label
             htmlFor="pipeline-search"
@@ -349,17 +434,74 @@ export default async function PipelinePage({
       ) : (
         <section className="paper overflow-hidden rounded-xl border">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1480px] text-left">
+            <table className="w-full min-w-[1780px] text-left">
               <thead className="bg-ink/[.035] font-mono text-[8px] tracking-[.11em] text-ink/44 uppercase">
                 <tr>
-                  <th className="px-5 py-3">Lead</th>
-                  <th className="px-3 py-3">HoneyBook status</th>
-                  <th className="px-3 py-3">Last contact</th>
-                  <th className="px-3 py-3">Proposal viewed</th>
-                  <th className="px-3 py-3">Dollars</th>
+                  <SortableColumnHeader
+                    label="Lead"
+                    sortKey="lead"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                    className="px-5 py-3"
+                  />
+                  <SortableColumnHeader
+                    label="Contacts"
+                    sortKey="contacts"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="Location"
+                    sortKey="location"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="HoneyBook status"
+                    sortKey="status"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="Last contact"
+                    sortKey="last-contact"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="Proposal viewed"
+                    sortKey="proposal-viewed"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="Dollars"
+                    sortKey="dollars"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
                   <th className="px-3 py-3">Type / services</th>
-                  <th className="px-3 py-3">Event</th>
-                  <th className="px-3 py-3">Next follow-up</th>
+                  <SortableColumnHeader
+                    label="Event"
+                    sortKey="event"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
+                  <SortableColumnHeader
+                    label="Next follow-up"
+                    sortKey="next-follow-up"
+                    activeSort={activeSort}
+                    activeDirection={activeDirection}
+                    params={activeParams}
+                  />
                   <th className="px-5 py-3">Attribution</th>
                 </tr>
               </thead>
@@ -375,6 +517,31 @@ export default async function PipelinePage({
                       </Link>
                       <p className="mt-1 text-[9px] text-ink/40">
                         {project.source} · {project.owner}
+                      </p>
+                    </td>
+                    <td className="px-3 py-4">
+                      <p className="text-xs font-bold">{project.contactName}</p>
+                      {project.email ? (
+                        <a
+                          href={`mailto:${project.email}`}
+                          className="mt-1 block text-[9px] text-ink/45 hover:text-coral"
+                        >
+                          {project.email}
+                        </a>
+                      ) : null}
+                      {project.phone ? (
+                        <a
+                          href={`tel:${project.phone}`}
+                          className="mt-1 block text-[9px] text-ink/45 hover:text-coral"
+                        >
+                          {project.phone}
+                        </a>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-4">
+                      <p className="text-xs font-bold">{project.venue}</p>
+                      <p className="mt-1 text-[9px] text-ink/40">
+                        {project.location}
                       </p>
                     </td>
                     <td className="px-3 py-4">
@@ -453,7 +620,7 @@ export default async function PipelinePage({
                         {dateLabel(project.eventDate)}
                       </p>
                       <p className="mt-1 text-[9px] text-ink/40">
-                        {project.venue}
+                        {project.eventType}
                       </p>
                     </td>
                     <td className="px-3 py-4">

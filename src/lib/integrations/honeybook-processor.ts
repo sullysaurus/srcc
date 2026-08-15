@@ -6,6 +6,10 @@ import { honeyBookWebhookSchema } from "./honeybook-webhook";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { verifyAttributionToken } from "@/lib/domain/attribution-token";
+import {
+  honeyBookProposalMilestone,
+  type HoneyBookProposalMilestone,
+} from "@/lib/domain/honeybook-stage-events";
 
 type Payload = z.infer<typeof honeyBookWebhookSchema>;
 const stringValue = (data: Record<string, unknown>, key: string) =>
@@ -178,7 +182,8 @@ async function upsertProject(
     const value = stringValue(payload.data, source);
     if (!value) continue;
     const timestamp = Date.parse(value);
-    if (!Number.isNaN(timestamp)) values[column] = new Date(timestamp).toISOString();
+    if (!Number.isNaN(timestamp))
+      values[column] = new Date(timestamp).toISOString();
   }
   if (contactId) values.primary_contact_id = contactId;
   if (stageId) values.pipeline_stage_id = stageId;
@@ -274,6 +279,105 @@ async function claimAttribution(
     .eq("id", session.id);
 }
 
+async function syncProposalMilestone(
+  organizationId: string,
+  projectId: string,
+  payload: Payload,
+): Promise<HoneyBookProposalMilestone | null> {
+  if (payload.event !== "project_stage_changed") return null;
+  const milestone = honeyBookProposalMilestone(
+    stringValue(payload.data, "stage"),
+  );
+  if (!milestone) return null;
+
+  const admin = createAdminSupabaseClient();
+  const providerId = `project:${payload.project_id ?? projectId}`;
+  const { data: existing } = await admin
+    .from("proposals")
+    .select("id,status,sent_at,signed_at")
+    .eq("organization_id", organizationId)
+    .eq("provider", "honeybook_automation")
+    .eq("provider_id", providerId)
+    .maybeSingle();
+
+  const existingStatus = String(existing?.status ?? "");
+  const status =
+    milestone === "proposal_signed"
+      ? "Signed"
+      : milestone === "proposal_viewed" && existingStatus !== "Signed"
+        ? "Viewed"
+        : existingStatus || "Sent";
+  const values = {
+    organization_id: organizationId,
+    project_id: projectId,
+    provider: "honeybook_automation",
+    provider_id: providerId,
+    status,
+    sent_at:
+      existing?.sent_at ??
+      (milestone === "proposal_sent" ? payload.occurred_at : null),
+    signed_at:
+      existing?.signed_at ??
+      (milestone === "proposal_signed" ? payload.occurred_at : null),
+    raw_provider_fields: {
+      source: "honeybook_stage_automation",
+      last_event_id: payload.event_id,
+    },
+  };
+  const { data: proposal, error: proposalError } = existing
+    ? await admin
+        .from("proposals")
+        .update(values)
+        .eq("id", existing.id)
+        .select("id")
+        .single()
+    : await admin.from("proposals").insert(values).select("id").single();
+  if (proposalError || !proposal)
+    throw new Error("Unable to store HoneyBook proposal milestone");
+
+  if (milestone === "proposal_viewed") {
+    const { error: viewError } = await admin.from("proposal_views").upsert(
+      {
+        organization_id: organizationId,
+        proposal_id: proposal.id,
+        provider_event_id: payload.event_id,
+        viewed_at: payload.occurred_at,
+        source_origin: "honeybook",
+      },
+      { onConflict: "organization_id,provider_event_id" },
+    );
+    if (viewError)
+      throw new Error("Unable to store confirmed HoneyBook proposal view");
+  }
+
+  if (milestone === "proposal_sent") {
+    const { data: project } = await admin
+      .from("projects")
+      .select("last_communication_at")
+      .eq("organization_id", organizationId)
+      .eq("id", projectId)
+      .single();
+    if (
+      !project?.last_communication_at ||
+      Date.parse(project.last_communication_at) <
+        Date.parse(payload.occurred_at)
+    ) {
+      const { error: contactError } = await admin
+        .from("projects")
+        .update({
+          last_communication_at: payload.occurred_at,
+          last_communication_channel: "HoneyBook file",
+        })
+        .eq("organization_id", organizationId)
+        .eq("id", projectId);
+      if (contactError)
+        throw new Error("Unable to update HoneyBook file contact time");
+    }
+  }
+
+  return milestone;
+}
+
 async function syncServices(
   organizationId: string,
   projectId: string,
@@ -348,6 +452,9 @@ export async function processHoneyBookEvent(
     stringValue(payload.data, "sr_attribution_token");
   if (projectId && attributionToken)
     await claimAttribution(organizationId, projectId, attributionToken);
+  const proposalMilestone = projectId
+    ? await syncProposalMilestone(organizationId, projectId, payload)
+    : null;
   if (
     payload.event === "project_stage_changed" &&
     !stringValue(payload.data, "stage")
@@ -414,12 +521,21 @@ export async function processHoneyBookEvent(
       {
         organization_id: organizationId,
         project_id: projectId,
-        event_type: payload.event,
-        title: payload.event.replaceAll("_", " "),
+        event_type:
+          proposalMilestone === "proposal_viewed"
+            ? "proposal_viewed"
+            : payload.event,
+        title:
+          proposalMilestone === "proposal_viewed"
+            ? "Proposal viewed"
+            : payload.event.replaceAll("_", " "),
         source_origin: "honeybook",
         provider_event_id: payload.event_id,
         occurred_at: payload.occurred_at,
-        metadata: { source: "honeybook_zapier" },
+        metadata: {
+          source: "honeybook_zapier",
+          proposal_milestone: proposalMilestone,
+        },
       },
       { onConflict: "organization_id,source_origin,provider_event_id" },
     );
