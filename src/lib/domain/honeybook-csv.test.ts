@@ -28,6 +28,22 @@ describe("HoneyBook CSV import", () => {
     expect(row.normalizedValues.projectId).toBe("abc-123");
   });
 
+  it("normalizes lifecycle, owner, client, and money fields from a native project report", () => {
+    const [row] = previewHoneyBookCsv(
+      "Project ID,Project Name,Project Owner,Client Info,Project Creation Date,Booked Date,Total Project Value,Total Paid\nhb_99,Amanda Atcheson's Project - Classy Booth,Colton Cerday colton@example.com,Amanda Atcheson amanda@example.com,2026-01-03 22:42:14 UTC,2026-02-04 15:00:00 UTC,1998.00,999.00",
+    );
+    expect(row.normalizedValues).toMatchObject({
+      inquiryAt: "2026-01-03T22:42:14.000Z",
+      bookedAt: "2026-02-04T15:00:00.000Z",
+      ownerName: "Colton Cerday",
+      firstName: "Amanda",
+      lastName: "Atcheson",
+      email: "amanda@example.com",
+      bookedValueCents: 199800,
+      collectedCents: 99900,
+    });
+  });
+
   it("does not silently accept rows without a stable HoneyBook id", () => {
     const [row] = previewHoneyBookCsv(
       "Project Name,Project Stage\nA Project,Planning",

@@ -14,10 +14,13 @@ import {
 type Payload = z.infer<typeof honeyBookWebhookSchema>;
 const stringValue = (data: Record<string, unknown>, key: string) =>
   typeof data[key] === "string" ? String(data[key]).trim() || null : null;
-const centsValue = (data: Record<string, unknown>, key: string) =>
-  Number.isInteger(data[key]) && Number(data[key]) >= 0
-    ? Number(data[key])
-    : null;
+const centsValue = (data: Record<string, unknown>, key: string) => {
+  const value = data[key];
+  if (Number.isInteger(value) && Number(value) >= 0) return Number(value);
+  if (typeof value === "string" && /^\d+$/.test(value.trim()))
+    return Number(value.trim());
+  return null;
+};
 const dollarValue = (data: Record<string, unknown>, key: string) => {
   const value = data[key];
   if (typeof value !== "string" && typeof value !== "number") return null;
@@ -169,6 +172,7 @@ async function upsertProject(
     ["city", "city"],
     ["region", "region"],
     ["lead_source", "lead_source"],
+    ["owner_name", "owner_name"],
     ["recent_activity_type", "last_communication_channel"],
   ] as const;
   for (const [source, column] of optionalFields) {
@@ -177,6 +181,8 @@ async function upsertProject(
   }
   for (const [source, column] of [
     ["event_at", "event_at"],
+    ["inquiry_at", "inquiry_at"],
+    ["booked_at", "booked_at"],
     ["recent_activity_at", "last_communication_at"],
   ] as const) {
     const value = stringValue(payload.data, source);
@@ -185,6 +191,10 @@ async function upsertProject(
     if (!Number.isNaN(timestamp))
       values[column] = new Date(timestamp).toISOString();
   }
+  if (payload.event === "new_inquiry" && !values.inquiry_at)
+    values.inquiry_at = payload.occurred_at;
+  if (payload.event === "project_booked" && !values.booked_at)
+    values.booked_at = payload.occurred_at;
   if (contactId) values.primary_contact_id = contactId;
   if (stageId) values.pipeline_stage_id = stageId;
   for (const [key, column] of [
@@ -194,6 +204,18 @@ async function upsertProject(
     ["collected_cents", "collected_cents"],
   ] as const) {
     const value = centsValue(payload.data, key);
+    if (value !== null) values[column] = value;
+  }
+  const moneyAliases = [
+    ["estimated_value", "estimated_value_cents"],
+    ["proposal_value", "proposal_value_cents"],
+    ["booked_value", "booked_value_cents"],
+    ["contract_value", "booked_value_cents"],
+    ["collected", "collected_cents"],
+  ] as const;
+  for (const [key, column] of moneyAliases) {
+    if (values[column] !== undefined) continue;
+    const value = dollarValue(payload.data, key);
     if (value !== null) values[column] = value;
   }
   if (existing) {
@@ -430,6 +452,72 @@ async function syncServices(
   }
 }
 
+async function syncProjectNextFollowUp(
+  organizationId: string,
+  projectId: string,
+) {
+  const admin = createAdminSupabaseClient();
+  const { data: next } = await admin
+    .from("tasks")
+    .select("due_at")
+    .eq("organization_id", organizationId)
+    .eq("project_id", projectId)
+    .is("completed_at", null)
+    .not("due_at", "is", null)
+    .order("due_at")
+    .limit(1)
+    .maybeSingle();
+  await admin
+    .from("projects")
+    .update({ next_follow_up_at: next?.due_at ?? null })
+    .eq("organization_id", organizationId)
+    .eq("id", projectId);
+}
+
+async function upsertDerivedTask(
+  organizationId: string,
+  projectId: string,
+  providerId: string,
+  title: string,
+  dueAt: string,
+) {
+  const admin = createAdminSupabaseClient();
+  await admin.from("tasks").upsert(
+    {
+      organization_id: organizationId,
+      project_id: projectId,
+      provider: "honeybook_automation",
+      provider_id: providerId,
+      title,
+      due_at: dueAt,
+      completed_at: null,
+      priority: "high",
+      source_origin: "derived",
+    },
+    { onConflict: "organization_id,provider,provider_id" },
+  );
+  await syncProjectNextFollowUp(organizationId, projectId);
+}
+
+async function completeDerivedTasks(
+  organizationId: string,
+  projectId: string,
+  providerIds: string[],
+  completedAt: string,
+) {
+  if (!providerIds.length) return;
+  const admin = createAdminSupabaseClient();
+  await admin
+    .from("tasks")
+    .update({ completed_at: completedAt })
+    .eq("organization_id", organizationId)
+    .eq("project_id", projectId)
+    .eq("provider", "honeybook_automation")
+    .in("provider_id", providerIds)
+    .is("completed_at", null);
+  await syncProjectNextFollowUp(organizationId, projectId);
+}
+
 export async function processHoneyBookEvent(
   organizationId: string,
   payload: Payload,
@@ -455,6 +543,59 @@ export async function processHoneyBookEvent(
   const proposalMilestone = projectId
     ? await syncProposalMilestone(organizationId, projectId, payload)
     : null;
+  if (projectId && payload.event === "new_inquiry")
+    await upsertDerivedTask(
+      organizationId,
+      projectId,
+      `new-inquiry:${payload.project_id ?? projectId}`,
+      "Respond to new inquiry",
+      new Date(Date.parse(payload.occurred_at) + 4 * 60 * 60_000).toISOString(),
+    );
+  if (projectId && proposalMilestone === "proposal_sent") {
+    await completeDerivedTasks(
+      organizationId,
+      projectId,
+      [`new-inquiry:${payload.project_id ?? projectId}`],
+      payload.occurred_at,
+    );
+    await upsertDerivedTask(
+      organizationId,
+      projectId,
+      `proposal-sent:${payload.project_id ?? projectId}`,
+      "Check whether the proposal was viewed",
+      new Date(
+        Date.parse(payload.occurred_at) + 48 * 60 * 60_000,
+      ).toISOString(),
+    );
+  }
+  if (projectId && proposalMilestone === "proposal_viewed") {
+    await completeDerivedTasks(
+      organizationId,
+      projectId,
+      [`proposal-sent:${payload.project_id ?? projectId}`],
+      payload.occurred_at,
+    );
+    await upsertDerivedTask(
+      organizationId,
+      projectId,
+      `proposal-viewed:${payload.project_id ?? projectId}`,
+      "Follow up on viewed proposal",
+      new Date(
+        Date.parse(payload.occurred_at) + 24 * 60 * 60_000,
+      ).toISOString(),
+    );
+  }
+  if (projectId && payload.event === "project_booked")
+    await completeDerivedTasks(
+      organizationId,
+      projectId,
+      [
+        `new-inquiry:${payload.project_id ?? projectId}`,
+        `proposal-sent:${payload.project_id ?? projectId}`,
+        `proposal-viewed:${payload.project_id ?? projectId}`,
+      ],
+      payload.occurred_at,
+    );
   if (
     payload.event === "project_stage_changed" &&
     !stringValue(payload.data, "stage")
@@ -479,19 +620,116 @@ export async function processHoneyBookEvent(
       centsValue(payload.data, "amount_cents") ??
       dollarValue(payload.data, "amount");
     if (projectId && paymentId && amount !== null) {
-      const { error: paymentError } = await admin.from("payments").upsert(
-        {
-          organization_id: organizationId,
+      let invoiceId: string | null = null;
+      let linkedInvoiceAmount: number | null = null;
+      const invoiceProviderId = stringValue(payload.data, "invoice_id");
+      const invoiceAmount =
+        centsValue(payload.data, "invoice_amount_cents") ??
+        dollarValue(payload.data, "invoice_amount");
+      if (invoiceProviderId && invoiceAmount !== null) {
+        linkedInvoiceAmount = invoiceAmount;
+        const invoiceDueRaw = stringValue(payload.data, "invoice_due_at");
+        const invoiceDueAt =
+          invoiceDueRaw && !Number.isNaN(Date.parse(invoiceDueRaw))
+            ? new Date(invoiceDueRaw).toISOString()
+            : null;
+        const invoicePaidCents = centsValue(payload.data, "invoice_paid_cents");
+        const invoiceStatus = stringValue(payload.data, "invoice_status");
+        const { error: invoiceCreateError } = await admin
+          .from("invoices")
+          .upsert(
+            {
+              organization_id: organizationId,
+              project_id: projectId,
+              provider: "honeybook_zapier",
+              provider_id: invoiceProviderId,
+              amount_cents: invoiceAmount,
+              paid_cents: invoicePaidCents ?? 0,
+              due_at: invoiceDueAt,
+              status: invoiceStatus ?? "unpaid",
+              raw_provider_fields: { source: "honeybook_zapier" },
+            },
+            {
+              onConflict: "organization_id,provider,provider_id",
+              ignoreDuplicates: true,
+            },
+          );
+        if (invoiceCreateError)
+          throw new Error("Unable to store HoneyBook invoice");
+        const { data: invoice, error: invoiceLookupError } = await admin
+          .from("invoices")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .eq("provider", "honeybook_zapier")
+          .eq("provider_id", invoiceProviderId)
+          .maybeSingle();
+        if (invoiceLookupError)
+          throw new Error("Unable to find HoneyBook invoice");
+        if (!invoice) throw new Error("Unable to find HoneyBook invoice");
+        const invoicePatch: Record<string, unknown> = {
           project_id: projectId,
-          provider: "honeybook_zapier",
-          provider_id: paymentId,
-          amount_cents: amount,
-          paid_at: stringValue(payload.data, "paid_at") ?? payload.occurred_at,
+          amount_cents: invoiceAmount,
           raw_provider_fields: { source: "honeybook_zapier" },
-        },
-        { onConflict: "organization_id,provider,provider_id" },
-      );
+        };
+        if (invoiceDueRaw) invoicePatch.due_at = invoiceDueAt;
+        if (invoicePaidCents !== null)
+          invoicePatch.paid_cents = invoicePaidCents;
+        if (invoiceStatus) invoicePatch.status = invoiceStatus;
+        const { error: invoiceUpdateError } = await admin
+          .from("invoices")
+          .update(invoicePatch)
+          .eq("id", invoice.id);
+        if (invoiceUpdateError)
+          throw new Error("Unable to update HoneyBook invoice");
+        invoiceId = invoice.id;
+      }
+      const paymentRecord: Record<string, unknown> = {
+        organization_id: organizationId,
+        project_id: projectId,
+        provider: "honeybook_zapier",
+        provider_id: paymentId,
+        amount_cents: amount,
+        paid_at: stringValue(payload.data, "paid_at") ?? payload.occurred_at,
+        raw_provider_fields: { source: "honeybook_zapier" },
+      };
+      if (invoiceId) paymentRecord.invoice_id = invoiceId;
+      const { error: paymentError } = await admin
+        .from("payments")
+        .upsert(paymentRecord, {
+          onConflict: "organization_id,provider,provider_id",
+        });
       if (paymentError) throw new Error("Unable to store HoneyBook payment");
+      if (invoiceId && linkedInvoiceAmount !== null) {
+        const { data: invoicePayments, error: invoicePaymentsError } =
+          await admin
+            .from("payments")
+            .select("amount_cents")
+            .eq("organization_id", organizationId)
+            .eq("invoice_id", invoiceId);
+        if (invoicePaymentsError)
+          throw new Error("Unable to total HoneyBook invoice payments");
+        const cumulativePaidCents = (invoicePayments ?? []).reduce(
+          (sum, payment) => sum + Number(payment.amount_cents),
+          0,
+        );
+        const reportedPaidCents = centsValue(
+          payload.data,
+          "invoice_paid_cents",
+        );
+        const paidCents = reportedPaidCents ?? cumulativePaidCents;
+        const reportedStatus = stringValue(payload.data, "invoice_status");
+        const { error: invoiceTotalError } = await admin
+          .from("invoices")
+          .update({
+            paid_cents: paidCents,
+            status:
+              reportedStatus ??
+              (paidCents >= linkedInvoiceAmount ? "paid" : "partial"),
+          })
+          .eq("id", invoiceId);
+        if (invoiceTotalError)
+          throw new Error("Unable to update HoneyBook invoice balance");
+      }
       const { data: payments, error: paymentsError } = await admin
         .from("payments")
         .select("amount_cents")

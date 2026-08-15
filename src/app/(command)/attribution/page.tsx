@@ -9,6 +9,7 @@ import { loadAttributionReport } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/domain/money";
 export default async function AttributionPage() {
   const data = (await loadAttributionReport()) ?? {
+    captureActive: false,
     leads: 0,
     organicLeads: 0,
     organicQualified: 0,
@@ -53,6 +54,18 @@ export default async function AttributionPage() {
           never assigned to a person.
         </p>
       </div>
+      {!data.captureActive ? (
+        <section className="mb-5 rounded-xl border border-marigold/45 bg-[#fff7dd] p-5">
+          <p className="text-xs font-bold">Website capture is not active yet</p>
+          <p className="mt-2 max-w-3xl text-[10px] leading-5 text-ink/55">
+            Add the prepared attribution script to the website footer, then
+            forward <code>sr_attribution_token</code> unchanged in the HoneyBook
+            new-inquiry Zap. Publish only after the filtered test inquiry passes
+            end to end.
+          </p>
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink p-3 text-[9px] leading-5 text-white/80">{`<script defer src="https://southernrevelry.vercel.app/attribution.js" data-endpoint="https://southernrevelry.vercel.app/api/public/attribution"></script>`}</pre>
+        </section>
+      ) : null}
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {kpis.map(({ Icon, label, value }) => (
           <div key={label} className="paper rounded-xl border p-4">

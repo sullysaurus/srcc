@@ -10,6 +10,9 @@ describe("project display names", () => {
     expect(displayProjectName("Sydney Nevarez’s Project")).toBe(
       "Sydney Nevarez",
     );
+    expect(displayProjectName("Amanda Atcheson's Project - Classy Booth")).toBe(
+      "Amanda Atcheson",
+    );
   });
 
   it("preserves intentionally named projects", () => {

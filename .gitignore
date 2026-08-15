@@ -10,3 +10,4 @@ private-backfill/
 supabase/.temp/
 supabase/.branches/
 .env*
+.gstack/

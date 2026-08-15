@@ -33,6 +33,13 @@ const requiredTriggerEvents = [
   "payment_received",
 ];
 
+const requiredPayloadKeys: Record<string, string[][]> = {
+  new_inquiry: [["project_name"], ["stage"], ["email"], ["inquiry_at"]],
+  project_stage_changed: [["stage"]],
+  project_booked: [["booked_value_cents", "booked_value", "contract_value"]],
+  payment_received: [["payment_id"], ["amount_cents", "amount"]],
+};
+
 const errorMessages: Record<string, string> = {
   invalid_upload: "Choose a HoneyBook CSV smaller than 10 MB.",
   invalid_csv: "That file could not be read as a HoneyBook CSV export.",
@@ -98,14 +105,30 @@ export default async function HoneyBookSetupPage({
   const automaticEnabled =
     automatic?.status !== "disabled" && Boolean(automatic);
   const webhookReady = Boolean(env.HONEYBOOK_WEBHOOK_SECRET);
+  const payloads = (webhookEvents ?? []).map(
+    (event) => event.safe_payload as { event?: unknown; keys?: unknown } | null,
+  );
   const receivedEventTypes = new Set(
-    (webhookEvents ?? []).flatMap((event) => {
-      const payload = event.safe_payload as { event?: unknown } | null;
-      return typeof payload?.event === "string" ? [payload.event] : [];
-    }),
+    payloads.flatMap((payload) =>
+      typeof payload?.event === "string" ? [payload.event] : [],
+    ),
+  );
+  const readyEventTypes = new Set(
+    requiredTriggerEvents.filter((eventType) =>
+      payloads.some((payload) => {
+        if (payload?.event !== eventType || !Array.isArray(payload.keys))
+          return false;
+        const keys = new Set(
+          payload.keys.filter((key): key is string => typeof key === "string"),
+        );
+        return (requiredPayloadKeys[eventType] ?? []).every((alternatives) =>
+          alternatives.some((key) => keys.has(key)),
+        );
+      }),
+    ),
   );
   const testedTriggerCount = requiredTriggerEvents.filter((event) =>
-    receivedEventTypes.has(event),
+    readyEventTypes.has(event),
   ).length;
   const zapsReady = testedTriggerCount === requiredTriggerEvents.length;
   const automaticStatus = !automaticEnabled
@@ -263,8 +286,9 @@ export default async function HoneyBookSetupPage({
             ))}
           </div>
           <p className="mt-3 text-[9px] leading-4 text-ink/45">
-            Once all four required Zaps are tested, the owner can safely pause
-            or resume automatic sync with this single toggle.
+            A setup ping does not count as ready. Each required Zap must deliver
+            the business fields shown below before the automatic feed is marked
+            live.
           </p>
           <details className="mt-5 rounded-xl border bg-white/40 p-4">
             <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold">
@@ -303,7 +327,7 @@ export default async function HoneyBookSetupPage({
                   key={event}
                   className="flex items-start gap-2 rounded-lg border bg-white/35 p-3"
                 >
-                  {receivedEventTypes.has(event) ? (
+                  {readyEventTypes.has(event) ? (
                     <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-moss" />
                   ) : (
                     <Clock3 className="mt-0.5 size-3.5 shrink-0 text-[#805e13]" />
@@ -311,9 +335,11 @@ export default async function HoneyBookSetupPage({
                   <div>
                     <p className="text-[10px] font-bold">{label}</p>
                     <p className="mt-1 font-mono text-[7px] text-ink/40">
-                      {receivedEventTypes.has(event)
-                        ? "Test event received"
-                        : `Awaiting test · ${event}`}
+                      {readyEventTypes.has(event)
+                        ? "Complete test payload received"
+                        : receivedEventTypes.has(event)
+                          ? `Event received · fields incomplete`
+                          : `Awaiting test · ${event}`}
                     </p>
                   </div>
                 </div>
@@ -333,14 +359,29 @@ export default async function HoneyBookSetupPage({
   "data": {
     "project_name": "<project name>",
     "stage": "<exact HoneyBook stage>",
+    "first_name": "<client first name>",
+    "last_name": "<client last name>",
+    "email": "<client email>",
+    "phone": "<client phone>",
+    "inquiry_at": "<inquiry received ISO timestamp>",
+    "booked_at": "<booking ISO timestamp>",
     "event_at": "<service date>",
+    "venue_name": "<venue>",
+    "city": "<city>",
+    "region": "<state>",
+    "owner_name": "<HoneyBook project owner>",
     "services": "<Photo Booth, Dance Floor, Bar Services, Margarita Machine>",
     "lead_source": "<lead source>",
-    "honeybook_url": "<project URL>",
+    "project_url": "<project URL>",
+    "recent_activity_at": "<last contact ISO timestamp>",
+    "recent_activity_type": "<email, sms, call, HoneyBook file>",
+    "attribution_token": "<sr_attribution_token from the inquiry form>",
     "estimated_value_cents": 0,
     "proposal_value_cents": 0,
     "booked_value_cents": 0,
-    "collected_cents": 0
+    "collected_cents": 0,
+    "payment_id": "<payment ID for payment_received>",
+    "amount_cents": 0
   }
 }`}</pre>
           </details>
