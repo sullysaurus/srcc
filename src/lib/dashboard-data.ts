@@ -6,6 +6,7 @@ import {
   startOfDateInTimeZone,
 } from "@/lib/domain/dates";
 import { displayProjectName } from "@/lib/domain/project-display";
+import { selectWithLifecycleFallback } from "@/lib/domain/postgrest-compatibility";
 
 async function organizationContext() {
   const context = await getOrganizationContext();
@@ -841,16 +842,24 @@ function mapProject(row: ProjectRow): LiveProject {
 
 const projectSelect =
   "id,name,event_type,event_at,inquiry_at,booked_at,venue_name,city,region,lead_source,owner_name,source_origin,raw_provider_fields,estimated_value_cents,proposal_value_cents,booked_value_cents,collected_cents,last_communication_at,last_communication_channel,next_follow_up_at,lead_temperature,honeybook_url,created_at,contacts(first_name,last_name,email_normalized,phone_e164),pipeline_stages(key,name),users(display_name),project_services(source_origin,original_value,services(name)),proposals(status,amount_cents,sent_at,signed_at,proposal_views(viewed_at)),lead_attribution(touch_type,gclid,utm_source,utm_campaign,landing_page)";
+const legacyProjectSelect = projectSelect
+  .replace("inquiry_at,booked_at,", "")
+  .replace("owner_name,", "");
 
 export async function loadPipelineProjects() {
   const context = await organizationContext();
   if (!context) return [];
-  const { data, error } = await context.supabase
-    .from("projects")
-    .select(projectSelect)
-    .eq("organization_id", context.organizationId)
-    .eq("source_origin", "honeybook")
-    .order("created_at", { ascending: false });
+  const { data, error } = await selectWithLifecycleFallback(
+    projectSelect,
+    legacyProjectSelect,
+    (columns) =>
+      context.supabase
+        .from("projects")
+        .select(columns)
+        .eq("organization_id", context.organizationId)
+        .eq("source_origin", "honeybook")
+        .order("created_at", { ascending: false }),
+  );
   if (error) throw new Error("The live pipeline could not be loaded");
   return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
 }
@@ -858,6 +867,15 @@ export async function loadPipelineProjects() {
 export async function loadProjectDetail(id: string) {
   const context = await organizationContext();
   if (!context) return null;
+  const loadProject = () =>
+    selectWithLifecycleFallback(projectSelect, legacyProjectSelect, (columns) =>
+      context.supabase
+        .from("projects")
+        .select(columns)
+        .eq("organization_id", context.organizationId)
+        .eq("id", id)
+        .maybeSingle(),
+    );
   const [
     { data: project, error },
     { data: activities },
@@ -865,12 +883,7 @@ export async function loadProjectDetail(id: string) {
     { data: invoices },
     { data: payments },
   ] = await Promise.all([
-    context.supabase
-      .from("projects")
-      .select(projectSelect)
-      .eq("organization_id", context.organizationId)
-      .eq("id", id)
-      .maybeSingle(),
+    loadProject(),
     context.supabase
       .from("activity_events")
       .select("id,event_type,title,detail,source_origin,occurred_at")
