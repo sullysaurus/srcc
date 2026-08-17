@@ -222,13 +222,13 @@ export default async function PipelinePage({
         <div className="flex gap-2">
           <Link
             href={pipelineHref(activeParams, { layout: "kanban" })}
-            className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${kanban ? "bg-ink text-white" : "bg-cream"}`}
+            className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${kanban ? "bg-void text-white" : "bg-cream"}`}
           >
             <Columns3 className="size-4" /> Kanban
           </Link>
           <Link
             href={pipelineHref(activeParams, { layout: undefined })}
-            className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${!kanban ? "bg-ink text-white" : "bg-cream"}`}
+            className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold ${!kanban ? "bg-void text-white" : "bg-cream"}`}
           >
             <List className="size-4" /> Table
           </Link>
@@ -243,7 +243,7 @@ export default async function PipelinePage({
             href={pipelineHref(activeParams, { view: key })}
             key={key}
             aria-current={activeView === key ? "page" : undefined}
-            className={`whitespace-nowrap rounded-full border px-3 py-2 text-[10px] font-bold ${activeView === key ? "border-ink bg-ink text-white" : "bg-cream text-ink/55"}`}
+            className={`whitespace-nowrap rounded-full border px-3 py-2 text-[10px] font-bold ${activeView === key ? "border-ink bg-void text-white" : "bg-cream text-ink/55"}`}
           >
             {label}
             <span
@@ -274,7 +274,7 @@ export default async function PipelinePage({
           >
             Find a lead
           </label>
-          <label className="flex h-11 items-center gap-2 rounded-lg border bg-white px-3 focus-within:border-ink/50">
+          <label className="flex h-11 items-center gap-2 rounded-lg border bg-panel px-3 focus-within:border-ink/50">
             <Search className="size-4 text-ink/35" />
             <input
               id="pipeline-search"
@@ -290,7 +290,7 @@ export default async function PipelinePage({
           <legend className="mb-1.5 font-mono text-[8px] font-bold tracking-[.12em] text-ink/40 uppercase">
             Event date
           </legend>
-          <div className="flex items-center rounded-lg border bg-white p-1">
+          <div className="flex items-center rounded-lg border bg-panel p-1">
             <label className="min-w-0">
               <span className="sr-only">Event date from</span>
               <input
@@ -314,7 +314,7 @@ export default async function PipelinePage({
             </label>
           </div>
         </fieldset>
-        <button className="h-11 rounded-lg bg-ink px-5 text-xs font-bold text-white transition hover:bg-coral">
+        <button className="h-11 rounded-lg bg-void px-5 text-xs font-bold text-white transition hover:bg-coral">
           Apply filters
         </button>
       </form>
@@ -398,7 +398,7 @@ export default async function PipelinePage({
             >
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-xs font-bold">{stage}</h2>
-                <span className="rounded-full bg-ink px-2 py-1 font-mono text-[8px] text-white">
+                <span className="rounded-full bg-void px-2 py-1 font-mono text-[8px] text-white">
                   {projects.filter((project) => project.stage === stage).length}
                 </span>
               </div>
@@ -421,7 +421,7 @@ export default async function PipelinePage({
                         {project.services.map((service) => (
                           <span
                             key={service.name}
-                            className="rounded bg-turquoise/15 px-2 py-1 text-[8px] font-bold text-[#285e59]"
+                            className="rounded bg-turquoise/15 px-2 py-1 text-[8px] font-bold text-turquoise"
                           >
                             {service.name}
                           </span>
@@ -551,7 +551,7 @@ export default async function PipelinePage({
                       </p>
                     </td>
                     <td className="px-3 py-4">
-                      <span className="rounded-full border bg-white px-2.5 py-1 text-[9px] font-bold">
+                      <span className="rounded-full border bg-panel px-2.5 py-1 text-[9px] font-bold">
                         {project.stage}
                       </span>
                     </td>
@@ -607,7 +607,7 @@ export default async function PipelinePage({
                         {project.services.length ? (
                           project.services.map((service) => (
                             <span
-                              className="rounded bg-turquoise/15 px-2 py-1 text-[9px] font-bold text-[#285e59]"
+                              className="rounded bg-turquoise/15 px-2 py-1 text-[9px] font-bold text-turquoise"
                               key={service.name}
                             >
                               {service.name}

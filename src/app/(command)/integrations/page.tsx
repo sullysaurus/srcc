@@ -138,7 +138,7 @@ export default async function IntegrationsPage() {
             className="paper flex flex-col gap-4 rounded-xl border p-5 lg:flex-row lg:items-center"
           >
             <span
-              className={`grid size-11 shrink-0 place-items-center rounded-xl ${item.status === "connected" || item.status === "capturing" || item.tone === "ready" ? "bg-moss/12 text-moss" : item.tone === "warn" ? "bg-marigold/20 text-[#845e0d]" : "bg-ink/8 text-ink/45"}`}
+              className={`grid size-11 shrink-0 place-items-center rounded-xl ${item.status === "connected" || item.status === "capturing" || item.tone === "ready" ? "bg-moss/12 text-moss" : item.tone === "warn" ? "bg-marigold/20 text-marigold" : "bg-ink/8 text-ink/45"}`}
             >
               {item.status === "connected" ||
               item.status === "capturing" ||
@@ -155,7 +155,7 @@ export default async function IntegrationsPage() {
                 <h2 className="font-display text-xl font-semibold">
                   {item.name}
                 </h2>
-                <span className="rounded-full border bg-white px-2 py-1 text-[8px] font-bold uppercase">
+                <span className="rounded-full border bg-panel px-2 py-1 text-[8px] font-bold uppercase">
                   {item.status}
                 </span>
               </div>
@@ -173,7 +173,7 @@ export default async function IntegrationsPage() {
             item.provider === "google_sheets" ? (
               <a
                 href={`/api/google/oauth/start?provider=${item.provider}`}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-panel px-3 text-[10px] font-bold"
               >
                 <KeyRound className="size-3.5" />{" "}
                 {item.status === "connected" ? "Reconnect" : "Connect"}
@@ -181,14 +181,14 @@ export default async function IntegrationsPage() {
             ) : item.provider === "honeybook_zapier" ? (
               <Link
                 href="/integrations/honeybook"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-panel px-3 text-[10px] font-bold"
               >
                 <KeyRound className="size-3.5" /> Setup guide
               </Link>
             ) : item.provider === "website_attribution" ? (
               <Link
                 href="/attribution"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-panel px-3 text-[10px] font-bold"
               >
                 Setup details
               </Link>
@@ -201,7 +201,7 @@ export default async function IntegrationsPage() {
         ))}
       </div>
       {issueGroups.length ? (
-        <section className="mt-5 rounded-xl border border-marigold/45 bg-[#fff7dd] p-5">
+        <section className="mt-5 rounded-xl border border-marigold/45 bg-marigold/[.08] p-5">
           <p className="text-xs font-bold">Open integration issues</p>
           <ul className="mt-3 space-y-2 text-[10px] text-ink/55">
             {issueGroups.map((issue) => (
@@ -213,7 +213,7 @@ export default async function IntegrationsPage() {
           </ul>
         </section>
       ) : null}
-      <section className="mt-5 rounded-xl border border-[#d79f92] bg-[#fff0e9] p-5">
+      <section className="mt-5 rounded-xl border border-[#d79f92] bg-coral/[.08] p-5">
         <div className="flex gap-3">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[#a44236]" />
           <div>

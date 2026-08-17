@@ -55,9 +55,9 @@ export default async function ImportArchivePage() {
         </p>
       </div>
 
-      <section className="mb-5 rounded-xl border border-turquoise/35 bg-[#e9f7f4] p-5">
+      <section className="mb-5 rounded-xl border border-turquoise/35 bg-turquoise/[.08] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/70 text-[#285e59]">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/70 text-turquoise">
             <ShieldCheck className="size-5" />
           </span>
           <div className="flex-1">
@@ -69,7 +69,7 @@ export default async function ImportArchivePage() {
           </div>
           <Link
             href="/integrations/honeybook"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-void px-4 text-xs font-bold text-white"
           >
             Open HoneyBook sync <ArrowRight className="size-4" />
           </Link>
@@ -89,7 +89,7 @@ export default async function ImportArchivePage() {
           </p>
         </section>
         <section className="paper rounded-xl border p-5">
-          <Archive className="size-5 text-[#805e13]" />
+          <Archive className="size-5 text-marigold" />
           <p className="mt-4 font-mono text-[8px] font-bold tracking-[.12em] text-ink/40 uppercase">
             Historical projects
           </p>

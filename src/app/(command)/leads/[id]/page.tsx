@@ -56,7 +56,7 @@ export default async function LeadDetailPage({
             <span className="rounded-full border bg-cream px-2.5 py-1 text-[9px] font-bold">
               {project.stage}
             </span>
-            <span className="rounded-full border bg-white px-2.5 py-1 text-[9px] font-bold capitalize">
+            <span className="rounded-full border bg-panel px-2.5 py-1 text-[9px] font-bold capitalize">
               {project.sourceOrigin.replaceAll("_", " ")}
             </span>
           </div>
@@ -73,12 +73,12 @@ export default async function LeadDetailPage({
             href={project.honeybookUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-ink px-4 text-xs font-bold text-white"
+            className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-void px-4 text-xs font-bold text-white"
           >
             Open HoneyBook <ExternalLink className="size-4" />
           </a>
         ) : (
-          <span className="self-start rounded-lg border bg-white px-4 py-3 text-[10px] font-bold text-ink/40">
+          <span className="self-start rounded-lg border bg-panel px-4 py-3 text-[10px] font-bold text-ink/40">
             No HoneyBook project linked
           </span>
         )}
@@ -111,7 +111,7 @@ export default async function LeadDetailPage({
                 project.services.map((service) => (
                   <span
                     key={service.name}
-                    className="rounded bg-turquoise/15 px-3 py-2 text-[10px] font-bold text-[#285e59]"
+                    className="rounded bg-turquoise/15 px-3 py-2 text-[10px] font-bold text-turquoise"
                   >
                     {service.name} · {service.origin.replaceAll("_", " ")}
                   </span>
@@ -119,7 +119,7 @@ export default async function LeadDetailPage({
               ) : (
                 <Link
                   href="/mapping-queue"
-                  className="rounded border border-coral/30 bg-[#fff0e9] px-3 py-2 text-[10px] font-bold text-coral"
+                  className="rounded border border-coral/30 bg-coral/[.08] px-3 py-2 text-[10px] font-bold text-coral"
                 >
                   Service needs mapping
                 </Link>
@@ -154,7 +154,7 @@ export default async function LeadDetailPage({
                     key={event.id}
                     className="grid grid-cols-[36px_1fr] gap-3 border-b py-4 last:border-0"
                   >
-                    <span className="grid size-9 place-items-center rounded-full bg-ink text-white">
+                    <span className="grid size-9 place-items-center rounded-full bg-void text-white">
                       <MessageSquareText className="size-4" />
                     </span>
                     <div>
@@ -235,8 +235,8 @@ export default async function LeadDetailPage({
               </div>
             </dl>
           </section>
-          <section className="rounded-xl border border-marigold/40 bg-[#fff7dd] p-5">
-            <p className="font-mono text-[8px] font-bold tracking-[.14em] text-[#805e13] uppercase">
+          <section className="rounded-xl border border-marigold/40 bg-marigold/[.08] p-5">
+            <p className="font-mono text-[8px] font-bold tracking-[.14em] text-marigold uppercase">
               Next follow-up · Dashboard maintained
             </p>
             <p className="mt-3 font-display text-2xl">
@@ -267,7 +267,7 @@ export default async function LeadDetailPage({
               <a
                 href={project.email ? `mailto:${project.email}` : undefined}
                 aria-disabled={!project.email}
-                className="flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+                className="flex h-9 items-center gap-2 rounded-lg border bg-panel px-3 text-[10px] font-bold"
               >
                 <Mail className="size-3.5" /> Email
               </a>

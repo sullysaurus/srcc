@@ -74,7 +74,7 @@ export default async function MappingQueuePage({
         </p>
       </div>
       {params.resolved ? (
-        <p className="mb-4 rounded-lg border border-moss/25 bg-[#edf6e9] px-4 py-3 text-xs font-bold text-moss">
+        <p className="mb-4 rounded-lg border border-moss/25 bg-moss/[.08] px-4 py-3 text-xs font-bold text-moss">
           Mapping applied to {params.resolved} row
           {params.resolved === "1" ? "" : "s"}.
         </p>
@@ -82,7 +82,7 @@ export default async function MappingQueuePage({
       {params.error ? (
         <p
           role="alert"
-          className="mb-4 rounded-lg border border-coral/25 bg-[#fff0e9] px-4 py-3 text-xs font-bold text-coral"
+          className="mb-4 rounded-lg border border-coral/25 bg-coral/[.08] px-4 py-3 text-xs font-bold text-coral"
         >
           The mapping could not be applied.
         </p>
@@ -141,7 +141,7 @@ export default async function MappingQueuePage({
                             <Eye className="size-3" /> Review {group.length}{" "}
                             original row{group.length === 1 ? "" : "s"}
                           </summary>
-                          <div className="mt-2 max-h-72 max-w-sm space-y-2 overflow-auto rounded bg-ink p-3 text-[8px] text-white">
+                          <div className="mt-2 max-h-72 max-w-sm space-y-2 overflow-auto rounded bg-void p-3 text-[8px] text-white">
                             {group.map((item) => {
                               const itemSource = Array.isArray(
                                 item.source_records,
@@ -190,7 +190,7 @@ export default async function MappingQueuePage({
                               name="canonicalValue"
                               aria-label={`Map ${row.source_value}`}
                               defaultValue={row.suggested_value ?? options[0]}
-                              className="h-9 rounded-lg border bg-white px-2 text-xs font-bold"
+                              className="h-9 rounded-lg border bg-panel px-2 text-xs font-bold"
                             >
                               {options.map((option) => (
                                 <option key={option}>{option}</option>
@@ -203,7 +203,7 @@ export default async function MappingQueuePage({
                             <select
                               name="canonicalValue"
                               aria-label={`Resolve ${row.source_value}`}
-                              className="h-9 rounded-lg border bg-white px-2 text-xs font-bold"
+                              className="h-9 rounded-lg border bg-panel px-2 text-xs font-bold"
                             >
                               <option value="__exclude__">
                                 Dismiss from live queue
@@ -215,7 +215,7 @@ export default async function MappingQueuePage({
                       <td className="px-5 py-4 text-right">
                         <button
                           form={`mapping-${row.id}`}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-ink px-3 text-[10px] font-bold text-white"
+                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-void px-3 text-[10px] font-bold text-white"
                         >
                           <Check className="size-3.5" /> Apply
                         </button>

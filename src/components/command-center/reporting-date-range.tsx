@@ -34,7 +34,7 @@ export function ReportingDateRange({
             <Link
               key={days}
               href={`${action}?days=${days}`}
-              className={`rounded-full border px-3 py-2 font-mono text-[9px] font-bold uppercase transition ${range.preset === String(days) ? "border-ink bg-ink text-white" : "bg-cream text-ink/55 hover:border-ink/40"}`}
+              className={`rounded-full border px-3 py-2 font-mono text-[9px] font-bold uppercase transition ${range.preset === String(days) ? "border-ink bg-void text-white" : "bg-cream text-ink/55 hover:border-ink/40"}`}
             >
               {days === 365 ? "1 year" : `${days} days`}
             </Link>

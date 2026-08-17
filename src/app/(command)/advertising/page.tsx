@@ -188,7 +188,7 @@ export default async function AdvertisingPage({
         />
       </section>
 
-      <section className="mt-4 overflow-hidden rounded-2xl border bg-ink text-white shadow-[0_18px_50px_rgba(23,25,21,.12)]">
+      <section className="mt-4 overflow-hidden rounded-2xl border bg-void text-white shadow-[0_18px_50px_rgba(23,25,21,.12)]">
         <div className="grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-5">
           {[
             [
@@ -209,7 +209,7 @@ export default async function AdvertisingPage({
               "Matched booked ÷ spend",
             ],
           ].map(([label, value, note]) => (
-            <div key={label} className="bg-ink p-5">
+            <div key={label} className="bg-void p-5">
               <p className="font-mono text-[8px] tracking-[.12em] text-white/42 uppercase">
                 {label}
               </p>
@@ -350,7 +350,7 @@ export default async function AdvertisingPage({
           </section>
 
           <section
-            className={`rounded-xl border p-5 ${trackingBroken ? "border-[#d79f92] bg-[#fff0e9]" : "border-moss/25 bg-[#edf6e9]"}`}
+            className={`rounded-xl border p-5 ${trackingBroken ? "border-[#d79f92] bg-coral/[.08]" : "border-moss/25 bg-moss/[.08]"}`}
           >
             {trackingBroken ? (
               <AlertTriangle className="size-5 text-[#a44236]" />
