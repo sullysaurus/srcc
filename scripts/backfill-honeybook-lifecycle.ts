@@ -70,11 +70,37 @@ async function main() {
 
   const { data: projects, error: projectError } = await client
     .from("projects")
-    .select("id,name,contacts(email_normalized)")
+    .select("id,name,raw_provider_fields,contacts(email_normalized)")
     .eq("organization_id", organization.id)
     .eq("source_origin", "honeybook");
   if (projectError)
     throw new Error("Live HoneyBook projects could not be loaded");
+
+  const sourceRecordIds = (projects ?? [])
+    .map((project) => {
+      const fields = project.raw_provider_fields as Record<string, unknown>;
+      return typeof fields?.latest_source_record_id === "string"
+        ? fields.latest_source_record_id
+        : null;
+    })
+    .filter((id): id is string => Boolean(id));
+  const { data: sourceRecords, error: sourceRecordError } = sourceRecordIds.length
+    ? await client
+        .from("source_records")
+        .select("id,raw_values")
+        .in("id", sourceRecordIds)
+    : { data: [], error: null };
+  if (sourceRecordError)
+    throw new Error("HoneyBook source records could not be loaded");
+  const sourceCreationById = new Map(
+    (sourceRecords ?? []).map((record) => {
+      const values = record.raw_values as Record<string, unknown>;
+      return [
+        String(record.id),
+        timestamp(String(values?.["Project Creation Date"] ?? "")),
+      ];
+    }),
+  );
 
   const matches = new Map<
     string,
@@ -82,16 +108,25 @@ async function main() {
       id: string;
       name: string;
       email: string | null;
+      sourceCreatedAt: string | null;
     }
   >();
   for (const project of projects ?? []) {
     const contact = Array.isArray(project.contacts)
       ? project.contacts[0]
       : project.contacts;
+    const fields = project.raw_provider_fields as Record<string, unknown>;
+    const sourceRecordId =
+      typeof fields?.latest_source_record_id === "string"
+        ? fields.latest_source_record_id
+        : null;
     matches.set(String(project.id), {
       id: String(project.id),
       name: String(project.name),
       email: contact?.email_normalized?.toLowerCase() ?? null,
+      sourceCreatedAt: sourceRecordId
+        ? (sourceCreationById.get(sourceRecordId) ?? null)
+        : null,
     });
   }
 
@@ -102,13 +137,22 @@ async function main() {
   for (const row of rows) {
     const projectName = value(row, "Project Name");
     const email = emailFrom(value(row, "Client Info"));
+    const sourceCreatedAt = timestamp(value(row, "Project Creation Date"));
+    const isSameSourceRecord = (project: {
+      sourceCreatedAt: string | null;
+    }) =>
+      !project.sourceCreatedAt || project.sourceCreatedAt === sourceCreatedAt;
     const candidates = [...matches.values()].filter(
       (project) =>
         label(project.name) === label(projectName) &&
-        (!email || !project.email || project.email === email),
+        (!email || !project.email || project.email === email) &&
+        isSameSourceRecord(project),
     );
     const fallback = email
-      ? [...matches.values()].filter((project) => project.email === email)
+      ? [...matches.values()].filter(
+          (project) =>
+            project.email === email && isSameSourceRecord(project),
+        )
       : [];
     const resolved = candidates.length === 1 ? candidates : fallback;
     if (!resolved.length) {

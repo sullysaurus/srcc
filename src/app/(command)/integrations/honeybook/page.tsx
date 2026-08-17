@@ -163,19 +163,19 @@ export default async function HoneyBookSetupPage({
       {params.error ? (
         <div
           role="alert"
-          className="mb-5 rounded-xl border border-coral/35 bg-[#fff0e9] px-4 py-3 text-xs font-bold text-[#8f3b32]"
+          className="mb-5 rounded-xl border border-coral/35 bg-coral/[.08] px-4 py-3 text-xs font-bold text-coral"
         >
           {errorMessages[params.error] ??
             "The HoneyBook update could not be completed."}
         </div>
       ) : null}
       {params.zapier ? (
-        <div className="mb-5 rounded-xl border border-moss/30 bg-[#edf6e9] px-4 py-3 text-xs text-moss">
+        <div className="mb-5 rounded-xl border border-moss/30 bg-moss/[.08] px-4 py-3 text-xs text-moss">
           Automatic HoneyBook sync is now <strong>{params.zapier}</strong>.
         </div>
       ) : null}
       {params.imported ? (
-        <div className="mb-5 rounded-xl border border-moss/30 bg-[#edf6e9] px-4 py-3 text-xs text-moss">
+        <div className="mb-5 rounded-xl border border-moss/30 bg-moss/[.08] px-4 py-3 text-xs text-moss">
           <strong>{params.imported} HoneyBook rows processed.</strong>{" "}
           {params.created ?? 0} created, {params.updated ?? 0} updated,{" "}
           {params.skipped ?? 0} skipped, and {params.mappings ?? 0} sent for
@@ -209,14 +209,14 @@ export default async function HoneyBookSetupPage({
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="paper rounded-xl border p-6">
           <div className="flex items-start gap-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-marigold/20 text-[#805e13]">
+            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-marigold/20 text-marigold">
               <Zap className="size-6" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-display text-2xl">Automatic with Zapier</h2>
                 <span
-                  className={`rounded-full border px-2 py-1 font-mono text-[8px] font-bold uppercase ${automaticEnabled ? "border-moss/25 bg-moss/8 text-moss" : "bg-white text-ink/45"}`}
+                  className={`rounded-full border px-2 py-1 font-mono text-[8px] font-bold uppercase ${automaticEnabled ? "border-moss/25 bg-moss/8 text-moss" : "bg-panel text-ink/45"}`}
                 >
                   {automaticStatus}
                 </span>
@@ -235,7 +235,7 @@ export default async function HoneyBookSetupPage({
                 value={automaticEnabled ? "false" : "true"}
               />
               <button
-                className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-xs font-bold ${automaticEnabled ? "border bg-white text-ink" : "bg-ink text-white"}`}
+                className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-xs font-bold ${automaticEnabled ? "border bg-panel text-ink" : "bg-void text-white"}`}
               >
                 {automaticEnabled ? (
                   <PauseCircle className="size-4" />
@@ -249,7 +249,7 @@ export default async function HoneyBookSetupPage({
             </form>
           </div>
           {!webhookReady ? (
-            <p className="mt-4 rounded-lg border border-coral/30 bg-[#fff0e9] p-3 text-[10px] leading-5 text-[#8f3b32]">
+            <p className="mt-4 rounded-lg border border-coral/30 bg-coral/[.08] p-3 text-[10px] leading-5 text-coral">
               Add HONEYBOOK_WEBHOOK_SECRET to the server environment before
               testing the Zap.
             </p>
@@ -278,7 +278,7 @@ export default async function HoneyBookSetupPage({
               >
                 <p className="text-[9px] font-bold text-ink/45">{label}</p>
                 <p
-                  className={`mt-1 text-[10px] font-bold ${ready ? "text-moss" : "text-[#805e13]"}`}
+                  className={`mt-1 text-[10px] font-bold ${ready ? "text-moss" : "text-marigold"}`}
                 >
                   {detail}
                 </p>
@@ -330,7 +330,7 @@ export default async function HoneyBookSetupPage({
                   {readyEventTypes.has(event) ? (
                     <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-moss" />
                   ) : (
-                    <Clock3 className="mt-0.5 size-3.5 shrink-0 text-[#805e13]" />
+                    <Clock3 className="mt-0.5 size-3.5 shrink-0 text-marigold" />
                   )}
                   <div>
                     <p className="text-[10px] font-bold">{label}</p>
@@ -346,7 +346,7 @@ export default async function HoneyBookSetupPage({
               ))}
             </div>
           </div>
-          <details className="mt-5 rounded-xl border bg-ink p-4 text-white">
+          <details className="mt-5 rounded-xl border bg-void p-4 text-white">
             <summary className="cursor-pointer text-xs font-bold">
               Show Zapier payload template
             </summary>
@@ -389,7 +389,7 @@ export default async function HoneyBookSetupPage({
 
         <section className="paper rounded-xl border p-6">
           <div className="flex items-start gap-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-turquoise/15 text-[#285e59]">
+            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-turquoise/15 text-turquoise">
               <FileSpreadsheet className="size-6" />
             </span>
             <div>
@@ -397,7 +397,7 @@ export default async function HoneyBookSetupPage({
                 <h2 className="font-display text-2xl">
                   Manual HoneyBook upload
                 </h2>
-                <span className="rounded-full border bg-white px-2 py-1 font-mono text-[8px] font-bold text-ink/45 uppercase">
+                <span className="rounded-full border bg-panel px-2 py-1 font-mono text-[8px] font-bold text-ink/45 uppercase">
                   No Zapier required
                 </span>
               </div>
@@ -423,7 +423,7 @@ export default async function HoneyBookSetupPage({
               name="file"
               type="file"
               accept=".csv,text/csv"
-              className="mx-auto mt-5 block max-w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:py-2.5 file:text-xs file:font-bold file:text-white"
+              className="mx-auto mt-5 block max-w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-void file:px-4 file:py-2.5 file:text-xs file:font-bold file:text-white"
             />
             <button className="mt-4 rounded-lg bg-coral px-4 py-2.5 text-xs font-bold text-white">
               Import HoneyBook projects
@@ -442,14 +442,14 @@ export default async function HoneyBookSetupPage({
             <a
               href="/honeybook-import-template.csv"
               download
-              className="inline-flex h-9 items-center gap-2 rounded-lg border bg-white px-3 text-[10px] font-bold"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border bg-panel px-3 text-[10px] font-bold"
             >
               <Download className="size-3.5" /> Download template
             </a>
           </div>
-          <div className="mt-5 rounded-xl border border-marigold/40 bg-[#fff7dd] p-4">
+          <div className="mt-5 rounded-xl border border-marigold/40 bg-marigold/[.08] p-4">
             <div className="flex items-center gap-2">
-              <Clock3 className="size-4 text-[#805e13]" />
+              <Clock3 className="size-4 text-marigold" />
               <p className="text-xs font-bold">Manual refresh behavior</p>
             </div>
             <ul className="mt-3 space-y-2 text-[10px] leading-5 text-ink/55">
@@ -469,8 +469,8 @@ export default async function HoneyBookSetupPage({
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <section className="rounded-xl border border-turquoise/35 bg-[#e9f7f4] p-5">
-          <ShieldCheck className="size-5 text-[#285e59]" />
+        <section className="rounded-xl border border-turquoise/35 bg-turquoise/[.08] p-5">
+          <ShieldCheck className="size-5 text-turquoise" />
           <p className="mt-3 text-xs font-bold">
             Both paths use the same safeguards
           </p>
@@ -480,7 +480,7 @@ export default async function HoneyBookSetupPage({
             sent for review.
           </p>
         </section>
-        <section className="rounded-xl border border-coral/30 bg-[#fff0e9] p-5">
+        <section className="rounded-xl border border-coral/30 bg-coral/[.08] p-5">
           <Copy className="size-4 text-[#a44236]" />
           <p className="mt-3 text-xs font-bold">Known HoneyBook limitation</p>
           <p className="mt-2 text-[10px] leading-5 text-ink/55">

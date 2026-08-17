@@ -13,4 +13,8 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|attribution.js|southern-revelry-logo.png).*)",
+  ],
+};

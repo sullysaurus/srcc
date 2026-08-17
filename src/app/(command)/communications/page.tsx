@@ -37,7 +37,7 @@ export default async function CommunicationsPage() {
         <div className="flex gap-2">
           <a
             href="/api/google/oauth/start?provider=gmail"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-void px-4 text-xs font-bold text-white"
           >
             <Mail className="size-4" /> Connect Gmail
           </a>
@@ -67,12 +67,12 @@ export default async function CommunicationsPage() {
             Incremental · hourly
           </p>
         </div>
-        <div className="rounded-xl border border-marigold/45 bg-[#fff7dd] p-4">
-          <p className="text-[9px] text-[#805e13]">Uncertain matches</p>
+        <div className="rounded-xl border border-marigold/45 bg-marigold/[.08] p-4">
+          <p className="text-[9px] text-marigold">Uncertain matches</p>
           <p className="mt-2 font-display text-2xl">
             {live?.pendingMappings ?? 0}
           </p>
-          <p className="mt-2 font-mono text-[8px] text-[#805e13]/60 uppercase">
+          <p className="mt-2 font-mono text-[8px] text-marigold/60 uppercase">
             Mapping queue
           </p>
         </div>
@@ -88,7 +88,7 @@ export default async function CommunicationsPage() {
               className="grid gap-3 p-5 sm:grid-cols-[38px_1fr_auto]"
             >
               <span
-                className={`grid size-9 place-items-center rounded-full ${message.direction === "inbound" ? "bg-turquoise/20 text-[#285e59]" : "bg-ink text-white"}`}
+                className={`grid size-9 place-items-center rounded-full ${message.direction === "inbound" ? "bg-turquoise/20 text-turquoise" : "bg-void text-white"}`}
               >
                 {message.direction === "inbound" ? (
                   <ArrowDownLeft className="size-4" />
@@ -101,10 +101,10 @@ export default async function CommunicationsPage() {
                   <p className="text-xs font-bold">
                     {message.subject ?? "No subject"}
                   </p>
-                  <span className="rounded-full border bg-white px-2 py-0.5 text-[8px] font-bold">
+                  <span className="rounded-full border bg-panel px-2 py-0.5 text-[8px] font-bold">
                     {message.direction}
                   </span>
-                  <span className="rounded-full border bg-white px-2 py-0.5 text-[8px] font-bold uppercase">
+                  <span className="rounded-full border bg-panel px-2 py-0.5 text-[8px] font-bold uppercase">
                     {message.channel}
                   </span>
                 </div>
@@ -125,7 +125,7 @@ export default async function CommunicationsPage() {
           ))}
         </div>
       </section>
-      <div className="mt-4 flex items-start gap-2 rounded-lg border border-coral/25 bg-[#fff0e9] px-4 py-3 text-[10px] leading-5 text-ink/55">
+      <div className="mt-4 flex items-start gap-2 rounded-lg border border-coral/25 bg-coral/[.08] px-4 py-3 text-[10px] leading-5 text-ink/55">
         <AlertCircle className="mt-0.5 size-4 shrink-0 text-coral" />
         HoneyBook SMS timestamps are captured when Gmail sync sees the matching
         notification; the message body remains in HoneyBook. Phone calls stay

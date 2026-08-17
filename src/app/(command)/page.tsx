@@ -8,9 +8,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { ReportingDateRange } from "@/components/command-center/reporting-date-range";
 import { loadCommandCenter } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/domain/money";
-import { formatReadableDateRange } from "@/lib/domain/reporting-date-range";
+import {
+  formatReadableDateRange,
+  resolveReportingRange,
+  type ReportingRangeParams,
+} from "@/lib/domain/reporting-date-range";
 
 function channelLabel(value: string | null) {
   if (!value) return "No channel recorded";
@@ -18,8 +23,15 @@ function channelLabel(value: string | null) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export default async function OverviewPage() {
-  const data = await loadCommandCenter();
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<ReportingRangeParams>;
+}) {
+  const reportingRange = resolveReportingRange(await searchParams, {
+    lagDays: 0,
+  });
+  const data = await loadCommandCenter(reportingRange);
   if (!data) return null;
   const range = formatReadableDateRange(data.range.start, data.range.end);
   const metrics = [
@@ -81,15 +93,15 @@ export default async function OverviewPage() {
     ],
   ];
   return (
-    <div className="pb-20 lg:pb-0">
+    <div className="reveal pb-20 lg:pb-0">
       <section className="mb-7 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="mb-2 font-mono text-[9px] font-bold tracking-[.17em] text-ink/45 uppercase">
-            Owner overview / Live ledger
+          <p className="mb-3 flex items-center gap-2 font-mono text-[9px] font-bold tracking-[.2em] text-marigold uppercase">
+            <span className="h-px w-8 bg-marigold" /> Owner overview / Live ledger
           </p>
-          <h1 className="font-display text-4xl leading-[.95] tracking-[-.045em] sm:text-6xl">
+          <h1 className="max-w-3xl font-display text-5xl leading-[.86] tracking-[-.055em] sm:text-7xl xl:text-[5.6rem]">
             Make the next
-            <br className="hidden sm:block" /> right move.
+            <br className="hidden sm:block" /> <span className="text-coral italic">right move.</span>
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-6 text-ink/58">
             {data.metrics.needsResponse
@@ -106,15 +118,22 @@ export default async function OverviewPage() {
           </span>
           <Link
             href="/pipeline?view=attention"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white"
+            className="inline-flex h-10 items-center gap-2 rounded-[3px] bg-marigold px-4 text-xs font-bold text-void shadow-[3px_3px_0_#ff6547] transition hover:-translate-y-0.5"
           >
             Open today’s worklist <ArrowUpRight className="size-4" />
           </Link>
         </div>
       </section>
+      <div className="mb-5">
+        <ReportingDateRange
+          action="/"
+          range={reportingRange}
+          lagLabel="HoneyBook through today"
+        />
+      </div>
       <section
         aria-label="Key metrics"
-        className="mb-5 grid overflow-hidden rounded-xl border bg-cream sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6"
+        className="mb-5 grid overflow-hidden rounded-[5px] border bg-cream sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6"
       >
         {metrics.map(([label, value, note], index) => (
           <div key={label} className="relative border-b border-r p-4">
@@ -122,7 +141,7 @@ export default async function OverviewPage() {
               className={`absolute left-0 top-0 h-1 w-full ${index < 4 ? "bg-coral" : index < 8 ? "bg-moss" : "bg-turquoise"}`}
             />
             <p className="mt-1 text-[10px] font-bold text-ink/48">{label}</p>
-            <p className="mt-2 font-display text-3xl leading-none tracking-[-.04em]">
+            <p className="mt-2 font-display text-3xl leading-none tracking-[-.04em] text-ink">
               {value}
             </p>
             <p className="mt-3 font-mono text-[8px] leading-4 text-ink/38 uppercase">
@@ -132,7 +151,7 @@ export default async function OverviewPage() {
         ))}
       </section>
       {data.metrics.lifecycleCoverage.inquiryDates < data.projects.length ? (
-        <section className="mb-5 rounded-xl border border-marigold/45 bg-[#fff7dd] px-4 py-3 text-[10px] leading-5 text-ink/60">
+        <section className="mb-5 rounded-xl border border-marigold/45 bg-marigold/[.08] px-4 py-3 text-[10px] leading-5 text-ink/60">
           <strong className="text-ink">
             Lifecycle dates are still filling.
           </strong>{" "}
@@ -214,7 +233,7 @@ export default async function OverviewPage() {
                         </p>
                       </td>
                       <td className="px-3 py-4">
-                        <span className="rounded-full border bg-white px-2.5 py-1 text-[10px] font-bold">
+                        <span className="rounded-full border bg-panel px-2.5 py-1 text-[10px] font-bold">
                           {project.stage}
                         </span>
                       </td>
@@ -352,7 +371,7 @@ export default async function OverviewPage() {
           </div>
         </section>
         <section
-          className={`rounded-xl border p-5 xl:col-span-3 ${data.issues.length || data.pendingMappings ? "border-[#d79f92] bg-[#fff0e9]" : "border-moss/25 bg-[#edf6e9]"}`}
+          className={`rounded-xl border p-5 xl:col-span-3 ${data.issues.length || data.pendingMappings ? "border-[#d79f92] bg-coral/[.08]" : "border-moss/25 bg-moss/[.08]"}`}
         >
           <div className="flex items-center gap-2">
             <CircleAlert className="size-4" />

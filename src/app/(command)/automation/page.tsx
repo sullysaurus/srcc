@@ -51,7 +51,7 @@ export default async function AutomationPage() {
             is implemented or attempted in this release.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 self-start rounded-full border border-coral/30 bg-[#fff0e9] px-4 py-2 text-[10px] font-bold text-[#93483c]">
+        <span className="inline-flex items-center gap-2 self-start rounded-full border border-coral/30 bg-coral/[.08] px-4 py-2 text-[10px] font-bold text-coral">
           <LockKeyhole className="size-4" /> Production uploads locked
         </span>
       </div>
@@ -137,9 +137,9 @@ export default async function AutomationPage() {
                               ? "Reason for revocation"
                               : "Evidence or test reference"
                           }
-                          className="h-9 min-w-0 flex-1 rounded-lg border bg-white px-3 text-[10px] outline-none focus:border-coral"
+                          className="h-9 min-w-0 flex-1 rounded-lg border bg-panel px-3 text-[10px] outline-none focus:border-coral"
                         />
-                        <button className="h-9 rounded-lg bg-ink px-3 text-[9px] font-bold text-white">
+                        <button className="h-9 rounded-lg bg-void px-3 text-[9px] font-bold text-white">
                           {row.satisfied ? "Revoke" : "Record approval"}
                         </button>
                       </form>

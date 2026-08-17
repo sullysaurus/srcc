@@ -7,6 +7,7 @@ import {
 } from "@/lib/domain/dates";
 import { displayProjectName } from "@/lib/domain/project-display";
 import { selectWithLifecycleFallback } from "@/lib/domain/postgrest-compatibility";
+import type { ReportingRange } from "@/lib/domain/reporting-date-range";
 
 async function organizationContext() {
   const context = await getOrganizationContext();
@@ -927,19 +928,31 @@ export async function loadProjectDetail(id: string) {
   };
 }
 
-export async function loadCommandCenter() {
+export async function loadCommandCenter(range: ReportingRange) {
   const context = await organizationContext();
   if (!context) return null;
   const now = new Date();
   const timeZone = "America/Chicago";
   const todayKey = dateKeyInTimeZone(now, timeZone);
-  const monthStartKey = `${todayKey.slice(0, 7)}-01`;
-  const monthStart = startOfDateInTimeZone(monthStartKey, timeZone);
+  const rangeStart = startOfDateInTimeZone(range.from, timeZone);
+  const rangeEnd = startOfDateInTimeZone(
+    addDaysToDateKey(range.to, 1),
+    timeZone,
+  );
+  const rangeStartTimestamp = Date.parse(rangeStart);
+  const rangeEndTimestamp = Date.parse(rangeEnd);
+  const timestampInRange = (value: string | null) => {
+    if (!value) return false;
+    const timestamp = Date.parse(value);
+    return timestamp >= rangeStartTimestamp && timestamp < rangeEndTimestamp;
+  };
   const todayStart = startOfDateInTimeZone(todayKey, timeZone);
   const todayEnd = startOfDateInTimeZone(
     addDaysToDateKey(todayKey, 1),
     timeZone,
   );
+  const todayStartTimestamp = Date.parse(todayStart);
+  const todayEndTimestamp = Date.parse(todayEnd);
   const [
     projects,
     { data: activities },
@@ -975,13 +988,15 @@ export async function loadCommandCenter() {
       )
       .eq("organization_id", context.organizationId)
       .eq("entity_type", "campaign")
-      .gte("date", monthStart.slice(0, 10)),
+      .gte("date", range.from)
+      .lte("date", range.to),
     context.supabase
       .from("search_console_daily_metrics")
       .select("clicks,impressions,ctr,average_position,date")
       .eq("organization_id", context.organizationId)
       .eq("search_appearance", "")
-      .gte("date", monthStart.slice(0, 10)),
+      .gte("date", range.from)
+      .lte("date", range.to),
     context.supabase
       .from("sync_connections")
       .select("provider,status,last_success_at")
@@ -996,11 +1011,13 @@ export async function loadCommandCenter() {
   const followUpsDue = activeProjects.filter(
     (project) =>
       project.nextFollowUpAt &&
-      project.nextFollowUpAt >= todayStart &&
-      project.nextFollowUpAt < todayEnd,
+      Date.parse(project.nextFollowUpAt) >= todayStartTimestamp &&
+      Date.parse(project.nextFollowUpAt) < todayEndTimestamp,
   );
   const overdue = activeProjects.filter(
-    (project) => project.nextFollowUpAt && project.nextFollowUpAt < todayStart,
+    (project) =>
+      project.nextFollowUpAt &&
+      Date.parse(project.nextFollowUpAt) < todayStartTimestamp,
   );
   const attention = [...needsResponse, ...overdue, ...followUpsDue]
     .filter(
@@ -1008,11 +1025,10 @@ export async function loadCommandCenter() {
         list.findIndex((item) => item.id === project.id) === index,
     )
     .slice(0, 8);
-  const bookedThisMonth = projects.filter(
+  const bookedInRange = projects.filter(
     (project) =>
       project.bookedCents > 0 &&
-      project.bookedAt &&
-      project.bookedAt >= monthStart,
+      timestampInRange(project.bookedAt),
   );
   const ads = (adMetrics ?? []).reduce(
     (sum, row) => ({
@@ -1034,8 +1050,8 @@ export async function loadCommandCenter() {
   );
   return {
     range: {
-      start: monthStartKey,
-      end: todayKey,
+      start: range.from,
+      end: range.to,
     },
     projects,
     attention,
@@ -1045,21 +1061,19 @@ export async function loadCommandCenter() {
     pendingMappings: pendingMappings ?? 0,
     metrics: {
       newLeads: projects.filter(
-        (project) => project.inquiryAt && project.inquiryAt >= monthStart,
+        (project) => timestampInRange(project.inquiryAt),
       ).length,
       needsResponse: needsResponse.length,
       followUpsDue: followUpsDue.length,
       overdue: overdue.length,
       proposalsSent: projects.filter(
-        (project) =>
-          project.proposalSentAt && project.proposalSentAt >= monthStart,
+        (project) => timestampInRange(project.proposalSentAt),
       ).length,
       proposalsViewed: projects.filter(
-        (project) =>
-          project.firstViewedAt && project.firstViewedAt >= monthStart,
+        (project) => timestampInRange(project.firstViewedAt),
       ).length,
-      bookings: bookedThisMonth.length,
-      bookedCents: bookedThisMonth.reduce(
+      bookings: bookedInRange.length,
+      bookedCents: bookedInRange.reduce(
         (sum, project) => sum + project.bookedCents,
         0,
       ),
@@ -1072,12 +1086,14 @@ export async function loadCommandCenter() {
         0,
       ),
       upcomingEvents: activeProjects.filter(
-        (project) => project.eventDate && project.eventDate >= todayStart,
+        (project) =>
+          project.eventDate &&
+          Date.parse(project.eventDate) >= todayStartTimestamp,
       ).length,
       adSpendCents: ads.spendCents,
       cplCents: (() => {
         const datedLeads = projects.filter(
-          (project) => project.inquiryAt && project.inquiryAt >= monthStart,
+          (project) => timestampInRange(project.inquiryAt),
         ).length;
         return datedLeads ? Math.round(ads.spendCents / datedLeads) : null;
       })(),

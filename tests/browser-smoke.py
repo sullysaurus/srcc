@@ -27,11 +27,15 @@ with sync_playwright() as playwright:
     assert page.get_by_role("heading", name="Make the next right move.").is_visible()
     assert page.get_by_text("Booked revenue").is_visible()
     assert page.get_by_text("Collected", exact=True).is_visible()
+    assert page.get_by_role("region", name="Reporting date range").is_visible()
+    page.get_by_role("link", name="7 days", exact=True).click()
+    page.wait_for_url("**/?days=7")
+    assert "days=7" in page.url
     assert page.get_by_role("columnheader", name="Contacts").is_visible()
     assert page.get_by_role("columnheader", name="Location").is_visible()
     assert page.get_by_text("Amanda Atcheson", exact=True).first.is_visible()
-    credit = page.get_by_role("link", name="Built by Raleigh AI Guy")
-    assert credit.get_attribute("href") == "https://raleighaiguy.com"
+    credit = page.get_by_role("link", name="Built by Afterglow Automations")
+    assert credit.get_attribute("href") == "https://afterglowautomations.com"
     page.screenshot(path="/tmp/southern-revelry-dashboard.png", full_page=True)
 
     page.goto(f"{BASE}/pipeline")

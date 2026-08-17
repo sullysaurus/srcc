@@ -55,7 +55,7 @@ export default async function AttributionPage() {
         </p>
       </div>
       {!data.captureActive ? (
-        <section className="mb-5 rounded-xl border border-marigold/45 bg-[#fff7dd] p-5">
+        <section className="mb-5 rounded-xl border border-marigold/45 bg-marigold/[.08] p-5">
           <p className="text-xs font-bold">Website capture is not active yet</p>
           <p className="mt-2 max-w-3xl text-[10px] leading-5 text-ink/55">
             Add the prepared attribution script to the website footer, then
@@ -63,7 +63,7 @@ export default async function AttributionPage() {
             new-inquiry Zap. Publish only after the filtered test inquiry passes
             end to end.
           </p>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink p-3 text-[9px] leading-5 text-white/80">{`<script defer src="https://southernrevelry.vercel.app/attribution.js" data-endpoint="https://southernrevelry.vercel.app/api/public/attribution"></script>`}</pre>
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-void p-3 text-[9px] leading-5 text-white/80">{`<script defer src="https://southernrevelry.vercel.app/attribution.js" data-endpoint="https://southernrevelry.vercel.app/api/public/attribution"></script>`}</pre>
         </section>
       ) : null}
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -120,7 +120,7 @@ export default async function AttributionPage() {
           </table>
         </div>
       </section>
-      <p className="mt-4 rounded-lg border border-turquoise/35 bg-[#e9f7f4] px-4 py-3 text-[10px] leading-5 text-[#285e59]">
+      <p className="mt-4 rounded-lg border border-turquoise/35 bg-turquoise/[.08] px-4 py-3 text-[10px] leading-5 text-turquoise">
         Privacy boundary: Search Console query rows are used for page-level
         opportunity analysis only. A query is not claimed as the source of a
         specific lead.

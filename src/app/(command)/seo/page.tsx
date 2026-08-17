@@ -132,9 +132,9 @@ export default async function SeoPage({
       />
 
       {live?.dataState === "processing" ? (
-        <section className="mt-4 overflow-hidden rounded-2xl border border-turquoise/35 bg-[#e9f7f4]">
+        <section className="mt-4 overflow-hidden rounded-2xl border border-turquoise/35 bg-turquoise/[.08]">
           <div className="grid gap-4 p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-            <span className="grid size-11 place-items-center rounded-full bg-turquoise/25 text-[#285e59]">
+            <span className="grid size-11 place-items-center rounded-full bg-turquoise/25 text-turquoise">
               <Sparkles className="size-5" />
             </span>
             <div>
@@ -147,7 +147,7 @@ export default async function SeoPage({
                 Console finishes processing impressions and clicks.
               </p>
             </div>
-            <span className="w-fit rounded-full border border-turquoise/35 bg-white/45 px-3 py-2 font-mono text-[8px] font-bold text-[#285e59] uppercase">
+            <span className="w-fit rounded-full border border-turquoise/35 bg-white/45 px-3 py-2 font-mono text-[8px] font-bold text-turquoise uppercase">
               Not an app error
             </span>
           </div>
@@ -305,7 +305,7 @@ export default async function SeoPage({
             )}
           </section>
 
-          <section className="rounded-xl border border-moss/25 bg-[#edf6e9] p-5">
+          <section className="rounded-xl border border-moss/25 bg-moss/[.08] p-5">
             <div className="flex items-start gap-3">
               {connected ? (
                 <CheckCircle2 className="size-5 shrink-0 text-moss" />
