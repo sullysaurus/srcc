@@ -34,8 +34,8 @@ with sync_playwright() as playwright:
     assert page.get_by_role("columnheader", name="Contacts").is_visible()
     assert page.get_by_role("columnheader", name="Location").is_visible()
     assert page.get_by_text("Amanda Atcheson", exact=True).first.is_visible()
-    credit = page.get_by_role("link", name="Built by Raleigh AI Guy")
-    assert credit.get_attribute("href") == "https://raleighaiguy.com"
+    credit = page.get_by_role("link", name="Built by Afterglow Automations")
+    assert credit.get_attribute("href") == "https://afterglowautomations.com"
     page.screenshot(path="/tmp/southern-revelry-dashboard.png", full_page=True)
 
     page.goto(f"{BASE}/pipeline")

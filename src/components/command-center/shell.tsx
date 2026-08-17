@@ -180,12 +180,12 @@ export async function CommandShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="mx-auto mb-20 flex max-w-[1540px] items-center justify-center border-t border-ink/10 px-4 py-6 sm:px-7 lg:mb-0 lg:justify-end">
           <a
-            href="https://raleighaiguy.com"
+            href="https://afterglowautomations.com"
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-[9px] font-bold tracking-[.12em] text-ink/38 uppercase transition hover:text-ink focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
           >
-            Built by Raleigh AI Guy ↗
+            Built by Afterglow Automations ↗
           </a>
         </footer>
         <nav
